@@ -1,153 +1,217 @@
 # src/quantum_hpc/abstract_machine_models.py
 
-from enum import Enum
-from typing import List, Dict, Optional, Union
-import qutip as qt
-import numpy as np
+import logging
+from typing import Optional, Dict, Any, List, Union
+from enum import Enum, auto
+from dataclasses import dataclass, field
 
-class AMMType(Enum):
-    """Abstract Machine Model Types from the paper"""
-    ASYMMETRIC = "asymmetric"          # QPU as server model
-    ACCELERATOR = "accelerator"        # QPU per CPU model
-    QUANTUM_ACCELERATOR = "quantum_accelerator"  # With quantum interconnect
+logger = logging.getLogger(__name__)
 
-class QPUInterface:
-    """Interface between classical and quantum systems"""
-    def __init__(self, model_type: AMMType):
-        self.model_type = model_type
-        self.quantum_memory = None
-        self.classical_memory = {}
+class MachineModelType(Enum):
+    """
+    Enumerates different kinds of quantum machine models.
+    
+    Examples might include:
+      - LOCAL_SIMULATOR: Single-node, in-process simulator (small-scale tests).
+      - DISTRIBUTED_SIMULATOR: HPC-based simulator with multi-node or multi-GPU support.
+      - HYBRID_CLOUD: Hybrid classical-quantum backends in the cloud (IonQ, AWS Braket, etc.).
+      - REAL_HARDWARE: A real quantum chip or QPU.
+    """
+    LOCAL_SIMULATOR = auto()
+    DISTRIBUTED_SIMULATOR = auto()
+    HYBRID_CLOUD = auto()
+    REAL_HARDWARE = auto()
 
-    def send_instruction(self, instruction: Dict) -> bool:
-        """Send instruction from classical to quantum system"""
-        # Implementation depends on model type
-        if self.model_type == AMMType.ASYMMETRIC:
-            # Use network protocol
-            return self._network_send(instruction)
-        elif self.model_type == AMMType.ACCELERATOR:
-            # Direct memory access
-            return self._direct_send(instruction)
-        else:
-            # Quantum interconnect protocol
-            return self._quantum_send(instruction)
 
-    def _network_send(self, instruction: Dict) -> bool:
-        """Network-based instruction sending for asymmetric model"""
-        # Simulate network latency and protocol
-        return True
+@dataclass
+class MachineModelConfig:
+    """
+    Configuration for a particular quantum machine model.
 
-    def _direct_send(self, instruction: Dict) -> bool:
-        """Direct memory access for accelerator model"""
-        return True
+    Attributes:
+        model_type: The type of quantum machine model.
+        max_qubits: Maximum number of qubits supported (or tested) by this model.
+        supports_feedback: Whether real-time classical feedback is supported (e.g., mid-circuit measurement).
+        vendor_info: Arbitrary metadata about the vendor, hardware generation, etc.
+        environment: Dictionary describing HPC or cloud environment parameters (node count, region, etc.).
+        connectivity_constraints: Any constraints on qubit connectivity or multi-qubit gates.
+        gate_times: Estimated/measured gate times for operations (X, CNOT, etc.).
+        error_budget: Overall error budget or threshold (useful for HPC or code-distance planning).
+    """
+    model_type: MachineModelType
+    max_qubits: int
+    supports_feedback: bool = False
+    vendor_info: Dict[str, Any] = field(default_factory=dict)
+    environment: Dict[str, Any] = field(default_factory=dict)
+    connectivity_constraints: Dict[str, Any] = field(default_factory=dict)
+    gate_times: Dict[str, float] = field(default_factory=dict)
+    error_budget: float = 0.01
 
-    def _quantum_send(self, instruction: Dict) -> bool:
-        """Quantum interconnect based sending"""
-        return True
 
-class QuantumInterconnect:
-    """Quantum Interconnect for enabling quantum parallelism"""
-    def __init__(self, num_qpus: int):
-        self.num_qpus = num_qpus
-        self.entanglement_map = np.zeros((num_qpus, num_qpus), dtype=bool)
+class AbstractMachineModel:
+    """
+    Defines a high-level interface for quantum machine models in HPC or local contexts.
+    This helps unify how distributed simulators, real QPUs, or cloud-hybrid 
+    backends are described and accessed.
+    """
 
-    def establish_entanglement(self, qpu1: int, qpu2: int) -> bool:
-        """Establish entanglement between two QPUs"""
-        if 0 <= qpu1 < self.num_qpus and 0 <= qpu2 < self.num_qpus:
-            self.entanglement_map[qpu1, qpu2] = True
-            self.entanglement_map[qpu2, qpu1] = True
-            return True
-        return False
+    def __init__(self, config: MachineModelConfig):
+        self.config = config
+        logger.debug(
+            f"AbstractMachineModel init: {self.config.model_type}, "
+            f"max qubits={self.config.max_qubits}, feedback={self.config.supports_feedback}."
+        )
 
-    def check_entanglement(self, qpu1: int, qpu2: int) -> bool:
-        """Check if two QPUs are entangled"""
-        return self.entanglement_map[qpu1, qpu2]
-
-class QRAM:
-    """Quantum Random Access Memory implementation"""
-    def __init__(self, num_qubits: int):
-        self.num_qubits = num_qubits
-        self.state = qt.basis([2] * num_qubits, [0] * num_qubits)
-        self.gates = self._initialize_gates()
-
-    def _initialize_gates(self) -> Dict:
-        """Initialize standard quantum gates"""
-        return {
-            'H': qt.gates.snot(),  # Hadamard
-            'X': qt.sigmax(),      # Pauli-X
-            'Y': qt.sigmay(),      # Pauli-Y
-            'Z': qt.sigmaz(),      # Pauli-Z
-            'CNOT': qt.gates.cnot()  # Controlled-NOT
-        }
-
-    def apply_gate(self, gate: str, qubits: List[int]) -> bool:
-        """Apply quantum gate to specified qubits"""
-        try:
-            if gate in self.gates:
-                # Apply single qubit gate
-                if len(qubits) == 1:
-                    gate_expand = qt.expand_operator(
-                        self.gates[gate], 
-                        self.num_qubits, 
-                        qubits[0]
-                    )
-                    self.state = gate_expand * self.state
-                # Apply two-qubit gate
-                elif len(qubits) == 2 and gate == 'CNOT':
-                    self.state = qt.gates.cnot(self.num_qubits, qubits[0], qubits[1]) * self.state
-                return True
-        except Exception as e:
-            print(f"Error applying gate: {str(e)}")
-            return False
-        return False
-
-class QuantumSystemNode:
-    """Single node in quantum HPC system"""
-    def __init__(self, 
-                 model_type: AMMType,
-                 num_qubits: int,
-                 num_classical_bits: int):
-        self.model_type = model_type
-        self.interface = QPUInterface(model_type)
-        self.qram = QRAM(num_qubits)
-        self.classical_memory = [0] * num_classical_bits
+    def initialize_backend(self) -> bool:
+        """
+        Perform any necessary initialization steps for the backend.
         
-    def execute_quantum_instruction(self, instruction: Dict) -> bool:
-        """Execute quantum instruction on node"""
-        if 'gate' in instruction and 'qubits' in instruction:
-            return self.qram.apply_gate(instruction['gate'], instruction['qubits'])
-        return False
+        Returns:
+            True on success, False otherwise.
+        """
+        raise NotImplementedError("initialize_backend must be overridden.")
 
-    def execute_classical_instruction(self, instruction: Dict) -> bool:
-        """Execute classical instruction on node"""
-        # Implement classical instruction execution
+    def shutdown_backend(self) -> None:
+        """
+        Cleanly shut down or release resources used by the backend.
+        """
+        raise NotImplementedError("shutdown_backend must be overridden.")
+
+    def submit_job(self, job_data: Dict[str, Any]) -> Any:
+        """
+        Submit a job (e.g., quantum circuit) to this machine model for execution.
+
+        Args:
+            job_data: Dictionary describing the job (circuit, shots, parameters).
+
+        Returns:
+            A handle or identifier for tracking job status (e.g., HPC job_id).
+        """
+        raise NotImplementedError("submit_job must be overridden.")
+
+    def get_job_result(self, job_id: Any) -> Dict[str, Any]:
+        """
+        Retrieve the result of a previously submitted job.
+
+        Args:
+            job_id: Identifier returned by submit_job.
+
+        Returns:
+            Dictionary containing job result data (measurement outcomes, final state, logs).
+        """
+        raise NotImplementedError("get_job_result must be overridden.")
+
+
+#
+# Example Concrete Classes
+#
+
+class LocalSimulatorModel(AbstractMachineModel):
+    """
+    A simple local simulator (single-node) implementation of AbstractMachineModel.
+
+    For demonstration, this runs everything in-process, storing results in memory.
+    """
+
+    def __init__(self, config: MachineModelConfig):
+        super().__init__(config)
+        self._initialized = False
+        self._job_results: Dict[str, Dict[str, Any]] = {}
+        logger.debug("LocalSimulatorModel created.")
+
+    def initialize_backend(self) -> bool:
+        """
+        For a local simulator, there's minimal initialization aside from verifying environment.
+        """
+        self._initialized = True
+        logger.info("Local simulator backend initialized.")
         return True
 
-class QuantumHPCSystem:
-    """High-Performance Quantum Computing System"""
-    def __init__(self, 
-                 num_nodes: int,
-                 model_type: AMMType,
-                 qubits_per_node: int,
-                 classical_bits_per_node: int):
-        self.num_nodes = num_nodes
-        self.model_type = model_type
-        self.nodes = [
-            QuantumSystemNode(model_type, qubits_per_node, classical_bits_per_node)
-            for _ in range(num_nodes)
-        ]
-        if model_type == AMMType.QUANTUM_ACCELERATOR:
-            self.quantum_interconnect = QuantumInterconnect(num_nodes)
-        else:
-            self.quantum_interconnect = None
+    def shutdown_backend(self) -> None:
+        """
+        Tear down or free resources (if any).
+        """
+        self._initialized = False
+        logger.info("Local simulator backend shut down.")
 
-    def execute_distributed_algorithm(self, instructions: List[Dict]) -> bool:
-        """Execute quantum algorithm across multiple nodes"""
-        success = True
-        for instruction in instructions:
-            if 'node_id' in instruction:
-                node = self.nodes[instruction['node_id']]
-                if 'quantum' in instruction:
-                    success &= node.execute_quantum_instruction(instruction['quantum'])
-                if 'classical' in instruction:
-                    success &= node.execute_classical_instruction(instruction['classical'])
-        return success
+    def submit_job(self, job_data: Dict[str, Any]) -> str:
+        """
+        For demonstration, we handle 'execution' immediately and store results.
+        """
+        if not self._initialized:
+            logger.warning("Backend not initialized. Call initialize_backend first.")
+            return "error_not_initialized"
+
+        job_id = f"local_job_{len(self._job_results)}"
+        logger.debug(f"Submitting local simulator job {job_id}. Data={job_data}")
+
+        # A real system might call a local quantum sim library (e.g., QuTiP).
+        result_data = {
+            "shots": job_data.get("shots", 1),
+            "qubits": job_data.get("num_qubits", self.config.max_qubits),
+            "status": "completed",
+            # Example: measure all qubits -> mock outcome
+            "measurements": [0]*job_data.get("num_qubits", 1)
+        }
+        self._job_results[job_id] = result_data
+        return job_id
+
+    def get_job_result(self, job_id: str) -> Dict[str, Any]:
+        return self._job_results.get(job_id, {"error": f"Job '{job_id}' not found."})
+
+
+class DistributedSimulatorModel(AbstractMachineModel):
+    """
+    Demonstration of a distributed HPC-based simulator. In a real system,
+    you'd integrate with HPC frameworks (MPI, Slurm, Ray, etc.) to allocate 
+    multiple nodes or GPUs for the simulation.
+    """
+
+    def __init__(self, config: MachineModelConfig):
+        super().__init__(config)
+        self._initialized = False
+        self._job_results: Dict[str, Dict[str, Any]] = {}
+        logger.debug("DistributedSimulatorModel created.")
+
+    def initialize_backend(self) -> bool:
+        """
+        Example: connect to HPC cluster or initialize distributed frameworks (MPI, Dask, etc.).
+        """
+        # HPC connection logic here
+        self._initialized = True
+        logger.info("Distributed simulator backend initialized.")
+        return True
+
+    def shutdown_backend(self) -> None:
+        """
+        Clean up HPC resources, finalize distributed frameworks, etc.
+        """
+        self._initialized = False
+        logger.info("Distributed simulator backend shut down.")
+
+    def submit_job(self, job_data: Dict[str, Any]) -> str:
+        if not self._initialized:
+            logger.warning("Backend not initialized. Call initialize_backend first.")
+            return "error_not_initialized"
+
+        job_id = f"dist_job_{len(self._job_results)}"
+        logger.debug(f"Submitting HPC-based job {job_id}. Data={job_data}")
+
+        # A real HPC approach might:
+        # 1) Request HPC resources (cpu_cores, gpus).
+        # 2) Distribute the circuit or QEC tasks across nodes.
+        # 3) Track progress in HPC job coordinator.
+
+        # We'll just store a naive mock result here.
+        result_data = {
+            "shots": job_data.get("shots", 1),
+            "distributed_nodes": self.config.environment.get("node_count", 1),
+            "status": "completed",
+            # Example outcome: all 1s
+            "measurements": [1]*job_data.get("num_qubits", 1)
+        }
+        self._job_results[job_id] = result_data
+        return job_id
+
+    def get_job_result(self, job_id: str) -> Dict[str, Any]:
+        return self._job_results.get(job_id, {"error": f"Job '{job_id}' not found."})

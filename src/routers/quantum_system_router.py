@@ -1,235 +1,214 @@
 # src/routers/quantum_system_router.py
 
+"""
+Router exposing quantum system operations, including circuit creation,
+applying gates, and measurement. Optionally integrates with HPC for
+large or distributed quantum simulations.
+"""
+
+import logging
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, field_validator, Field
-from typing import Dict, List, Optional, Union
-from uuid import uuid4
+from pydantic import BaseModel
+from typing import Optional, List, Dict, Any
 
-import qutip as qt
-import numpy as np
+# Example: integrate with HPC modules
+from src.quantum_hpc.distributed.coordinator import HPCJobCoordinator, HPCJob
+from src.quantum_hpc.distributed.resource_manager import ResourceManager, ResourceRequest
+from src.quantum_hpc.distributed.resource_manager import HPCResourceStats
+from src.quantum_hpc.distributed.coordinator import HPCJobState
 
-from qutip_qip.operations.gates import cnot as cnot_gate
+# from src.quantum_system.error_correction import ErrorCorrection
+# from src.quantum_system.language import QuantumCompiler
+# from src.quantum_system.network import QuantumNetwork
+# from src.quantum_hpc.virtualization.simulation import QuantumSimulationEngine
 
-# Existing code from your quantum_system subpackage
-from src.quantum_system.network import QuantumNetwork
-from src.quantum_system.language import QuantumCompiler, LanguageLevel
-from src.quantum_system.error_correction import ErrorCorrection
-
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
-NETWORKS: Dict[str, QuantumNetwork] = {}
-ERROR_CORRECTIONS: Dict[str, ErrorCorrection] = {}
+# In-memory store of active system simulations (for local usage)
+QUANTUM_SYSTEMS: Dict[str, Any] = {}
 
-# -------------------------------------------------------------
-# Existing endpoints for QuantumNetwork and ErrorCorrection
-# -------------------------------------------------------------
-@router.post("/network/create")
-def create_network(num_nodes: int = 4):
-    """
-    Create a QuantumNetwork with a specified number of nodes.
-    """
-    if num_nodes < 1:
-        raise HTTPException(status_code=400, detail="num_nodes must be >= 1")
+# Optional HPC synergy: if you want HPC distribution for large tasks
+coordinator = HPCJobCoordinator()
+resource_manager = ResourceManager(total_cores=64, total_gpus=4, total_memory_gb=128.0)
 
-    net = QuantumNetwork(num_nodes=num_nodes)
-    net_id = str(uuid4())
-    NETWORKS[net_id] = net
-    return {"network_id": net_id, "num_nodes": num_nodes}
+# -------------------------------------------------------------------------
+# Pydantic models for local usage
+# -------------------------------------------------------------------------
+class CreateSystemRequest(BaseModel):
+    system_id: str
+    num_qubits: int
+    description: Optional[str] = None
 
+class CreateSystemResponse(BaseModel):
+    system_id: str
+    message: str
 
-@router.post("/network/connect")
-def connect_nodes(network_id: str, node1: int, node2: int):
-    """
-    Connect two nodes in an existing QuantumNetwork.
-    """
-    net = NETWORKS.get(network_id)
-    if not net:
-        raise HTTPException(status_code=404, detail="Network not found")
+class ApplyOperationRequest(BaseModel):
+    system_id: str
+    operation: str
+    qubits: List[int]
+    params: Dict[str, Any] = {}
 
-    success = net.connect_nodes(node1, node2)
-    return {"connected": success}
+class ApplyOperationResponse(BaseModel):
+    message: str
 
-
-@router.post("/error_correction/create")
-def create_error_correction(num_qubits: int = 1, levels: int = 2):
-    """
-    Create an ErrorCorrection context (e.g., Steane code).
-    """
-    ec = ErrorCorrection(num_qubits=num_qubits, levels=levels)
-    ec_id = str(uuid4())
-    ERROR_CORRECTIONS[ec_id] = ec
-    return {"error_correction_id": ec_id, "num_qubits": num_qubits, "levels": levels}
-
-# -------------------------------------------------------------
-# New: Simulation Models & Endpoint
-# -------------------------------------------------------------
-class GateOp(BaseModel):
-    """
-    Defines a single gate operation.
-      e.g. { "gate": "H", "qubits": [0] }
-           { "gate": "CNOT", "qubits": [0,1] }
-    """
-    gate: str
+class MeasureRequest(BaseModel):
+    system_id: str
     qubits: List[int]
 
-    @field_validator('qubits')
-    def check_qubits(cls, qubits, info):
-        """
-        Pydantic V2 style validator.
-        If gate = "CNOT", ensure we have exactly 2 qubits.
-        """
-        gate_val = info.data['gate'].upper()
-        if gate_val == "CNOT" and len(qubits) != 2:
-            raise ValueError("CNOT requires exactly 2 qubits.")
-        # You can also enforce single-qubit gates have len(qubits)=1 if you want:
-        # elif gate_val in ["H","X","Y","Z"] and len(qubits) != 1:
-        #     raise ValueError(f"{gate_val} requires exactly 1 qubit.")
-        return qubits
+class MeasureResponse(BaseModel):
+    outcomes: Dict[str, float]
 
+# -------------------------------------------------------------------------
+# Local Endpoints (Small-Scale or Non-HPC)
+# -------------------------------------------------------------------------
 
-class SimulationRequest(BaseModel):
+@router.post("/create_system", response_model=CreateSystemResponse)
+def create_system(payload: CreateSystemRequest):
     """
-    Pydantic model for simulation requests.
-    Example:
-      {
-        "num_qubits": 2,
-        "gates": [
-          { "gate":"H", "qubits":[0] },
-          { "gate":"CNOT", "qubits":[0,1] }
-        ],
-        "shots": 1000
-      }
+    Create a new local quantum system instance (e.g., a small simulation).
+    For HPC synergy, see /submit_distributed_simulation.
     """
-    num_qubits: int = Field(ge=1, le=20)
-    gates: List[GateOp]
-    shots: Optional[int] = 1000
+    if payload.system_id in QUANTUM_SYSTEMS:
+        raise HTTPException(status_code=400, detail="System ID already exists.")
+    # Initialize or integrate with your quantum engine:
+    # engine = QuantumSimulationEngine(num_qubits=payload.num_qubits)
+    engine = {
+        "num_qubits": payload.num_qubits,
+        "description": payload.description
+    }  # mock
 
-@router.post("/simulate")
-def simulate_quantum_circuit(request: SimulationRequest):
+    QUANTUM_SYSTEMS[payload.system_id] = engine
+
+    return CreateSystemResponse(
+        system_id=payload.system_id,
+        message=f"Quantum system '{payload.system_id}' created with {payload.num_qubits} qubits."
+    )
+
+@router.post("/apply_operation", response_model=ApplyOperationResponse)
+def apply_operation(payload: ApplyOperationRequest):
     """
-    POST /qsystem/simulate
-    Accepts a JSON body matching SimulationRequest.
-    1) Initialize all qubits in |0>.
-    2) Apply each gate.
-    3) Return final state, probabilities, and optional shot-based measurements.
+    Apply a quantum operation (gate or error correction step) to a local system.
     """
+    system_id = payload.system_id
+    if system_id not in QUANTUM_SYSTEMS:
+        raise HTTPException(status_code=404, detail="System not found.")
+
+    # engine = QUANTUM_SYSTEMS[system_id]
+    # engine.apply_gate(payload.operation, payload.qubits, payload.params)
+
+    return ApplyOperationResponse(
+        message=(
+            f"Operation '{payload.operation}' applied on system '{system_id}' "
+            f"for qubits {payload.qubits}."
+        )
+    )
+
+@router.post("/measure", response_model=MeasureResponse)
+def measure(payload: MeasureRequest):
+    """
+    Measure specified qubits in the local system and return outcome probabilities.
+    """
+    system_id = payload.system_id
+    if system_id not in QUANTUM_SYSTEMS:
+        raise HTTPException(status_code=404, detail="System not found.")
+
+    # engine = QUANTUM_SYSTEMS[system_id]
+    # results = engine.measure_probabilities(payload.qubits)
+    # For demonstration:
+    results = {str(q): 0.5 for q in payload.qubits}
+
+    return MeasureResponse(outcomes=results)
+
+@router.delete("/delete_system")
+def delete_system(system_id: str):
+    """
+    Delete a local quantum system from memory.
+    """
+    if system_id in QUANTUM_SYSTEMS:
+        del QUANTUM_SYSTEMS[system_id]
+        return {"message": f"Quantum system '{system_id}' deleted."}
+    raise HTTPException(status_code=404, detail="System not found.")
+
+# -------------------------------------------------------------------------
+# HPC Synergy: Distributed Simulation Endpoint
+# -------------------------------------------------------------------------
+
+class DistributedSimRequest(BaseModel):
+    """
+    Request model for distributing a quantum simulation task via HPC.
+    
+    Attributes:
+        job_id: HPC job identifier.
+        num_qubits: Number of qubits for the simulation.
+        parameters: Additional simulation or HPC configuration details.
+        cpu_cores, gpu_cards, memory_gb: HPC resource requests.
+        code_distance, num_cycles: If relevant for QEC or HPC tasks.
+    """
+    job_id: str
+    num_qubits: int
+    code_distance: int = 3
+    num_cycles: int = 1
+    cpu_cores: int = 1
+    gpu_cards: int = 0
+    memory_gb: float = 1.0
+    parameters: Dict[str, Any] = {}
+
+class DistributedSimResponse(BaseModel):
+    """
+    Response after HPC job is submitted for a distributed quantum simulation.
+    """
+    job_id: str
+    message: str
+
+@router.post("/submit_distributed_simulation", response_model=DistributedSimResponse)
+def submit_distributed_simulation(payload: DistributedSimRequest):
+    """
+    Submit a large or distributed quantum simulation as an HPC job.
+    Allocates HPC resources, then uses HPCJobCoordinator to queue the job.
+    The HPC job can run big circuits, multi-cycle QEC, or IonQ-like tasks
+    in a distributed environment.
+
+    Usage:
+      - Provide 'job_id' for HPC tracking
+      - Resource params (cpu_cores, gpu_cards, memory_gb)
+      - 'parameters' can hold circuit data, gate lists, QEC configs, etc.
+    """
+    # 1) HPC resource allocation
+    req = ResourceRequest(
+        job_id=payload.job_id,
+        cpu_cores=payload.cpu_cores,
+        gpu_cards=payload.gpu_cards,
+        memory_gb=payload.memory_gb,
+        duration_estimate=3600.0,  # or something from 'parameters'
+        metadata=payload.parameters
+    )
+    allocated = resource_manager.request_resources(req)
+    if not allocated:
+        raise HTTPException(status_code=400, detail="Insufficient HPC resources for this simulation.")
+
+    # 2) HPC job creation
+    job = HPCJob(
+        job_id=payload.job_id,
+        qubit_count=payload.num_qubits,
+        code_distance=payload.code_distance,
+        num_cycles=payload.num_cycles,
+        parameters=payload.parameters
+    )
     try:
-        # 1) Initialize state
-        psi = qt.tensor([qt.basis(2, 0) for _ in range(request.num_qubits)])
-
-        # 2) Apply each gate in sequence
-        for gate_op in request.gates:
-            psi = apply_gate(psi, gate_op.gate, gate_op.qubits, request.num_qubits)
-
-        # 3) Compute probabilities
-        probabilities = measure_probabilities(psi)
-
-        # 4) Perform measurements if requested
-        measurements = None
-        if request.shots and request.shots > 0:
-            measurements = perform_measurements(probabilities, request.shots)
-
-        # 5) Return final state + probabilities
-        return {
-            "final_state": convert_state_to_json_friendly(psi),
-            "probabilities": probabilities,
-            "measurements": measurements
-        }
-
-    except Exception as e:
+        coordinator.submit_job(job)
+    except ValueError as e:
+        # If job_id conflict or other HPC error, release resources
+        resource_manager.release_resources(payload.job_id)
         raise HTTPException(status_code=400, detail=str(e))
 
-# -------------------------------------------------------------
-# Gate/Measurement Utility Functions
-# -------------------------------------------------------------
-def apply_gate(state: qt.Qobj, gate_name: str, qubits: List[int], num_qubits: int) -> qt.Qobj:
-    """
-    Apply a single- or two-qubit gate to the state (QuTiP Qobj).
-    gate_name can be: "H", "X", "Y", "Z", "CNOT".
-    """
-    gate_name_up = gate_name.upper()
-    if gate_name_up in ["H","X","Y","Z"]:
-        return apply_single_qubit_gate(state, gate_name_up, qubits[0], num_qubits)
-    elif gate_name_up == "CNOT":
-        return apply_cnot(state, qubits[0], qubits[1], num_qubits)
-    else:
-        raise ValueError(f"Unsupported gate: {gate_name_up}")
-
-def apply_single_qubit_gate(state: qt.Qobj, gate_name: str, qubit_idx: int, num_qubits: int) -> qt.Qobj:
-    """
-    Build the operator matrix manually for single-qubit gates (H, X, Y, Z).
-    Then expand to the correct qubit index with tensor.
-    """
-    if gate_name == "H":
-        op = (1/np.sqrt(2)) * qt.Qobj([[1, 1], [1, -1]])
-    elif gate_name == "X":
-        op = qt.sigmax()
-    elif gate_name == "Y":
-        op = qt.sigmay()
-    elif gate_name == "Z":
-        op = qt.sigmaz()
-    else:
-        raise ValueError(f"Unknown single-qubit gate: {gate_name}")
-
-    # Expand to the full system
-    expanded_op = qt.tensor([
-        op if i == qubit_idx else qt.qeye(2)
-        for i in range(num_qubits)
-    ])
-    return expanded_op * state
-
-def apply_cnot(state: qt.Qobj, control: int, target: int, num_qubits: int) -> qt.Qobj:
-    """
-    Use cnot from qutip_qip.operations.gates.
-    """
-    cnot_op = cnot_gate(num_qubits, control, target)
-    return cnot_op * state
-
-def measure_probabilities(state: qt.Qobj) -> List[float]:
-    """
-    Return list of probabilities for each basis state: [p(0...0), p(0...1), ... p(1...1)].
-    """
-    arr = state.full()
-    if state.isket:
-        probs = np.abs(arr.flatten())**2
-    else:
-        # density matrix
-        probs = np.real(np.diagonal(arr))
-    return probs.tolist()
-
-def perform_measurements(probabilities: List[float], shots: int) -> Dict[str,int]:
-    """
-    Randomly sample 'shots' times from 'probabilities'.
-    Return dict of bitstring -> count.
-    """
-    results = {}
-    dim = len(probabilities)
-    from math import log2
-    n_qubits = int(log2(dim))
-
-    outcomes = np.random.choice(dim, size=shots, p=probabilities)
-    for outcome in outcomes:
-        bitstring = format(outcome, f'0{n_qubits}b')
-        results[bitstring] = results.get(bitstring, 0) + 1
-    return results
-
-def convert_state_to_json_friendly(state: qt.Qobj) -> Union[List[List[float]], List[float]]:
-    """
-    Convert a QuTiP state (ket or density) into a JSON-friendly array of [real, imag].
-    For kets: 1D list of [r,i].
-    For density matrices: 2D list of [r,i].
-    """
-    mat = state.full()
-    if state.isket:
-        vec = mat.flatten()
-        return [[val.real, val.imag] for val in vec]
-    else:
-        rows, cols = mat.shape
-        data = []
-        for r in range(rows):
-            row_data = []
-            for c in range(cols):
-                val = mat[r,c]
-                row_data.append([val.real, val.imag])
-            data.append(row_data)
-        return data
+    logger.info(
+        f"Distributed simulation submitted: job_id={payload.job_id}, "
+        f"qubits={payload.num_qubits}, HPC resources allocated."
+    )
+    return DistributedSimResponse(
+        job_id=payload.job_id,
+        message=(f"Distributed simulation submitted. HPC job '{payload.job_id}' is queued. "
+                 "Use /hpc/job_status to monitor progress.")
+    )

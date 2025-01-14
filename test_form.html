@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Quantum HPC API Test Form</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      max-width: 900px;
+    }
+    h1 {
+      margin-bottom: 10px;
+    }
+    .section {
+      border: 1px solid #ccc;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+    }
+    .section h2 {
+      margin-top: 0;
+      margin-bottom: 10px;
+    }
+    label {
+      display: inline-block;
+      width: 200px;
+      font-weight: bold;
+    }
+    input, select, textarea {
+      width: 280px;
+      margin-bottom: 8px;
+    }
+    button {
+      cursor: pointer;
+      padding: 6px 12px;
+      margin: 5px 0;
+    }
+    pre {
+      background: #f8f8f8;
+      padding: 10px;
+      border: 1px solid #ccc;
+      max-height: 300px;
+      overflow: auto;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Quantum HPC API Test Form</h1>
+<p>
+  This page provides HTML forms to test both <strong>local</strong> and 
+  <strong>HPC-distributed</strong> quantum endpoints. Adjust the <strong>BASE_URL</strong> 
+  in the JavaScript if your backend runs at a different host or port.
+</p>
+<hr />
+
+<!-- ==================== Quantum System: LOCAL ==================== -->
+<div class="section">
+  <h2>Quantum System (Local)</h2>
+  <p><strong>Create System</strong> (POST /qsystem/create_system)</p>
+  <label>System ID:</label>
+  <input id="qs_sys_id" type="text" value="sys1" /><br/>
+  <label>Num Qubits:</label>
+  <input id="qs_num_qubits" type="number" value="5" /><br/>
+  <label>Description:</label>
+  <input id="qs_description" type="text" value="Demo system" /><br/>
+  <button onclick="createQuantumSystem()">Create System</button>
+
+  <hr/>
+
+  <p><strong>Apply Operation</strong> (POST /qsystem/apply_operation)</p>
+  <label>System ID:</label>
+  <input id="qs_op_sysid" type="text" value="sys1" /><br/>
+  <label>Operation:</label>
+  <input id="qs_operation" type="text" value="X" /><br/>
+  <label>Qubits (comma):</label>
+  <input id="qs_op_qubits" type="text" value="0" /><br/>
+  <label>Params (JSON):</label><br/>
+  <textarea id="qs_op_params" rows="2">{}</textarea><br/>
+  <button onclick="applyQsOperation()">Apply Operation</button>
+
+  <hr/>
+
+  <p><strong>Measure</strong> (POST /qsystem/measure)</p>
+  <label>System ID:</label>
+  <input id="qs_measure_sysid" type="text" value="sys1" /><br/>
+  <label>Qubits (comma):</label>
+  <input id="qs_measure_qubits" type="text" value="0,1" /><br/>
+  <button onclick="measureQs()">Measure Qubits</button>
+</div>
+
+<!-- ==================== Quantum System: HPC Distributed ==================== -->
+<div class="section">
+  <h2>Quantum System (HPC Distributed)</h2>
+  <p><strong>Submit Distributed Simulation</strong> (POST /qsystem/submit_distributed_simulation)</p>
+  <label>Job ID:</label>
+  <input id="qs_hpc_jobid" type="text" value="dist_sim_1" /><br/>
+  <label>Num Qubits:</label>
+  <input id="qs_hpc_num_qubits" type="number" value="10" /><br/>
+  <label>Code Distance:</label>
+  <input id="qs_hpc_code_distance" type="number" value="3" /><br/>
+  <label>Num Cycles:</label>
+  <input id="qs_hpc_num_cycles" type="number" value="2" /><br/>
+  <label>CPU Cores:</label>
+  <input id="qs_hpc_cores" type="number" value="2" /><br/>
+  <label>GPU Cards:</label>
+  <input id="qs_hpc_gpus" type="number" value="0" /><br/>
+  <label>Memory (GB):</label>
+  <input id="qs_hpc_memgb" type="number" step="0.1" value="4" /><br/>
+  <label>Params (JSON):</label><br/>
+  <textarea id="qs_hpc_params" rows="2">{}</textarea><br/>
+  <button onclick="submitDistributedSimulation()">Submit Distributed Simulation</button>
+</div>
+
+<!-- ==================== HPC Section ==================== -->
+<div class="section">
+  <h2>HPC</h2>
+  <p><strong>Submit Job</strong> (POST /hpc/submit_job)</p>
+  <label>Job ID:</label>
+  <input id="hpc_job_id" type="text" value="job123" /><br/>
+  <label>Qubit Count:</label>
+  <input id="hpc_qubit_count" type="number" value="10" /><br/>
+  <label>Code Distance:</label>
+  <input id="hpc_code_distance" type="number" value="3" /><br/>
+  <label>Num Cycles:</label>
+  <input id="hpc_num_cycles" type="number" value="1" /><br/>
+  <label>CPU Cores:</label>
+  <input id="hpc_cpu_cores" type="number" value="2" /><br/>
+  <label>GPU Cards:</label>
+  <input id="hpc_gpu_cards" type="number" value="0" /><br/>
+  <label>Memory (GB):</label>
+  <input id="hpc_memory_gb" type="number" step="0.1" value="4" /><br/>
+  <button onclick="submitHPCJob()">Submit HPC Job</button>
+
+  <hr/>
+
+  <p><strong>Job Status</strong> (GET /hpc/job_status?job_id=...)</p>
+  <label>Job ID to Check:</label>
+  <input id="hpc_job_id_status" type="text" value="job123" /><br/>
+  <button onclick="checkHPCJobStatus()">Get Job Status</button>
+</div>
+
+<!-- ==================== IonQ Section (Local) ==================== -->
+<div class="section">
+  <h2>IonQ (Local)</h2>
+  <p><strong>Direct Randomized Benchmarking (DRB)</strong> (POST /ionq/drb)</p>
+  <label>Qubits (comma):</label>
+  <input id="ionq_qubits" type="text" value="0,1" /><br/>
+  <label>Depth:</label>
+  <input id="ionq_depth" type="number" value="10" /><br/>
+  <label>p2q:</label>
+  <input id="ionq_p2q" type="number" step="0.05" value="0.25" /><br/>
+  <button onclick="runIonqDRB()">Run DRB</button>
+
+  <hr/>
+
+  <p><strong>Application Benchmark</strong> (POST /ionq/application)</p>
+  <label>Application Name:</label>
+  <input id="ionq_app_name" type="text" value="hamiltonian_simulation" /><br/>
+  <label>Width:</label>
+  <input id="ionq_app_width" type="number" value="5" /><br/>
+  <button onclick="runIonqApplication()">Run Application</button>
+</div>
+
+<!-- ==================== IonQ HPC Section ==================== -->
+<div class="section">
+  <h2>IonQ (HPC)</h2>
+  <p><strong>Submit HPC IonQ Task</strong> (POST /ionq/submit_hpc_ionq)</p>
+  <label>Job ID:</label>
+  <input id="ionq_hpc_jobid" type="text" value="ionq_job_1" /><br/>
+  <label>Benchmark Type (drb/app/error_mitigation):</label>
+  <input id="ionq_bench_type" type="text" value="drb" /><br/>
+  <label>Qubits (comma):</label>
+  <input id="ionq_hpc_qubits" type="text" value="0,1" /><br/>
+  <label>Depth:</label>
+  <input id="ionq_hpc_depth" type="number" value="10" /><br/>
+  <label>p2q:</label>
+  <input id="ionq_hpc_p2q" type="number" step="0.05" value="0.25" /><br/>
+  <label>App Name (if any):</label>
+  <input id="ionq_hpc_app_name" type="text" value="hamiltonian_simulation" /><br/>
+  <label>App Width (if any):</label>
+  <input id="ionq_hpc_app_width" type="number" value="5" /><br/>
+  <p>Circuit (JSON) for error mitigation or advanced tasks:</p>
+  <textarea id="ionq_hpc_circuit" rows="3"></textarea>
+  <br/>
+  <label>Num Qubits (error mitigation only):</label>
+  <input id="ionq_hpc_num_qubits" type="number" value="2" /><br/>
+  <hr/>
+  <label>CPU Cores:</label>
+  <input id="ionq_hpc_cores" type="number" value="2" /><br/>
+  <label>GPU Cards:</label>
+  <input id="ionq_hpc_gpus" type="number" value="0" /><br/>
+  <label>Memory (GB):</label>
+  <input id="ionq_hpc_mem" type="number" step="0.1" value="4" /><br/>
+  <p>Params (JSON):</p>
+  <textarea id="ionq_hpc_params" rows="2">{}</textarea><br/>
+  <button onclick="submitHPCIonq()">Submit HPC IonQ Task</button>
+</div>
+
+<!-- ==================== Memristor Section (Local) ==================== -->
+<div class="section">
+  <h2>Memristor (Local)</h2>
+  <p><strong>Run Circuit</strong> (POST /memristor/run_circuit)</p>
+  <label>Circuit ID:</label>
+  <input id="mem_circ_id" type="text" value="mem_circ_1" /><br/>
+  <p>Operations (JSON):</p>
+  <textarea id="mem_circuit_ops" rows="3">
+[{"gate":"phase","qubits":[0],"state_dim":2}]
+  </textarea><br/>
+  <button onclick="runMemCircuit()">Execute Memristor Circuit</button>
+</div>
+
+<!-- ==================== Memristor HPC Section ==================== -->
+<div class="section">
+  <h2>Memristor (HPC)</h2>
+  <p><strong>Submit HPC Memristor Task</strong> (POST /memristor/submit_hpc_memristor)</p>
+  <label>Job ID:</label>
+  <input id="mem_hpc_jobid" type="text" value="mem_job_1" /><br/>
+  <label>Circuit ID:</label>
+  <input id="mem_hpc_circid" type="text" value="mem_hpc_circuit" /><br/>
+  <p>Operations (JSON):</p>
+  <textarea id="mem_hpc_ops" rows="3">
+[{"gate":"phase","qubits":[0],"state_dim":2},{"gate":"swap","qubits":[0,1]}]
+  </textarea><br/>
+  <hr/>
+  <label>CPU Cores:</label>
+  <input id="mem_hpc_cores" type="number" value="2" /><br/>
+  <label>GPU Cards:</label>
+  <input id="mem_hpc_gpus" type="number" value="0" /><br/>
+  <label>Memory (GB):</label>
+  <input id="mem_hpc_mem" type="number" step="0.1" value="4" /><br/>
+  <p>Params (JSON):</p>
+  <textarea id="mem_hpc_params" rows="2">{}</textarea><br/>
+  <button onclick="submitHPCMemristor()">Submit HPC Memristor Task</button>
+</div>
+
+<!-- ==================== Surface Code Section (Local) ==================== -->
+<div class="section">
+  <h2>Surface Code (Local)</h2>
+  <p><strong>Measure Stabilizers</strong> (POST /surface_code/measure_stabilizers)</p>
+  <label>Distance:</label>
+  <input id="sc_distance" type="number" value="3" /><br/>
+  <label>Cycle Index:</label>
+  <input id="sc_cycle_index" type="number" value="1" /><br/>
+  <button onclick="measureSurfaceStabilizers()">Measure Stabilizers</button>
+
+  <hr/>
+
+  <p><strong>Decode Syndrome</strong> (POST /surface_code/decode_syndrome)</p>
+  <label>Distance:</label>
+  <input id="sc_distance_decode" type="number" value="3" /><br/>
+  <p>Stabilizer Data (JSON):</p>
+  <textarea id="sc_stabilizer_data" rows="3">
+{"X_stabilizers":[[0,0],[0,0]],"Z_stabilizers":[[0,0],[0,0]],"metadata":{}}
+  </textarea><br/>
+  <button onclick="decodeSurfaceSyndrome()">Decode Syndrome</button>
+</div>
+
+<!-- ==================== Surface Code HPC Section ==================== -->
+<div class="section">
+  <h2>Surface Code (HPC)</h2>
+  <p><strong>Run Multi-Round QEC</strong> (POST /surface_code/run_multi_round_qec)</p>
+  <label>Job ID:</label>
+  <input id="sc_hpc_jobid" type="text" value="sc_qec_job1" /><br/>
+  <label>Distance:</label>
+  <input id="sc_hpc_distance" type="number" value="5" /><br/>
+  <label>Rounds:</label>
+  <input id="sc_hpc_rounds" type="number" value="10" /><br/>
+  <hr/>
+  <label>CPU Cores:</label>
+  <input id="sc_hpc_cores" type="number" value="2" /><br/>
+  <label>GPU Cards:</label>
+  <input id="sc_hpc_gpus" type="number" value="0" /><br/>
+  <label>Memory (GB):</label>
+  <input id="sc_hpc_mem" type="number" step="0.1" value="4" /><br/>
+  <p>Params (JSON):</p>
+  <textarea id="sc_hpc_params" rows="2">{}</textarea><br/>
+  <button onclick="submitMultiRoundQEC()">Run Multi-Round QEC</button>
+</div>
+
+<hr/>
+<h2>Response</h2>
+<pre id="responseArea">(No response yet)</pre>
+
+<script>
+const BASE_URL = "http://127.0.0.1:8000";
+
+// Helper to display JSON response
+function showResponse(data) {
+  const resp = document.getElementById('responseArea');
+  resp.textContent = JSON.stringify(data, null, 2);
+}
+
+// ==================== Quantum System: LOCAL ====================
+function createQuantumSystem() {
+  const system_id = document.getElementById('qs_sys_id').value;
+  const num_qubits = parseInt(document.getElementById('qs_num_qubits').value);
+  const description = document.getElementById('qs_description').value;
+
+  const payload = { system_id, num_qubits, description };
+  fetch(`${BASE_URL}/qsystem/create_system`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(data => showResponse(data))
+  .catch(err => showResponse({error: err}));
+}
+
+function applyQsOperation() {
+  const system_id = document.getElementById('qs_op_sysid').value;
+  const operation = document.getElementById('qs_operation').value;
+  const qubitsStr = document.getElementById('qs_op_qubits').value;
+  const qubits = qubitsStr.split(',').map(q => parseInt(q.trim()));
+  let params;
+  try {
+    params = JSON.parse(document.getElementById('qs_op_params').value);
+  } catch(e) {
+    showResponse({error: "Invalid JSON in params"});
+    return;
+  }
+
+  const payload = { system_id, operation, qubits, params };
+  fetch(`${BASE_URL}/qsystem/apply_operation`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(data => showResponse(data))
+  .catch(err => showResponse({error: err}));
+}
+
+function measureQs() {
+  const system_id = document.getElementById('qs_measure_sysid').value;
+  const qubitsStr = document.getElementById('qs_measure_qubits').value;
+  const qubits = qubitsStr.split(',').map(q => parseInt(q.trim()));
+
+  const payload = { system_id, qubits };
+  fetch(`${BASE_URL}/qsystem/measure`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(data => showResponse(data))
+  .catch(err => showResponse({error: err}));
+}
+
+// ==================== Quantum System: HPC Distributed ====================
+function submitDistributedSimulation() {
+  const job_id = document.getElementById('qs_hpc_jobid').value;
+  const num_qubits = parseInt(document.getElementById('qs_hpc_num_qubits').value);
+  const code_distance = parseInt(document.getElementById('qs_hpc_code_distance').value);
+  const num_cycles = parseInt(document.getElementById('qs_hpc_num_cycles').value);
+  const cpu_cores = parseInt(document.getElementById('qs_hpc_cores').value);
+  const gpu_cards = parseInt(document.getElementById('qs_hpc_gpus').value);
+  const memory_gb = parseFloat(document.getElementById('qs_hpc_memgb').value);
+
+  let parameters;
+  try {
+    parameters = JSON.parse(document.getElementById('qs_hpc_params').value);
+  } catch(e) {
+    showResponse({error: "Invalid JSON in HPC params"});
+    return;
+  }
+
+  const payload = {
+    job_id,
+    num_qubits,
+    code_distance,
+    num_cycles,
+    cpu_cores,
+    gpu_cards,
+    memory_gb,
+    parameters
+  };
+  fetch(`${BASE_URL}/qsystem/submit_distributed_simulation`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(data => showResponse(data))
+  .catch(err => showResponse({error: err}));
+}
+
+// ==================== HPC Functions ====================
+function submitHPCJob() {
+  const job_id = document.getElementById('hpc_job_id').value;
+  const qubit_count = parseInt(document.getElementById('hpc_qubit_count').value);
+  const code_distance = parseInt(document.getElementById('hpc_code_distance').value);
+  const num_cycles = parseInt(document.getElementById('hpc_num_cycles').value);
+  const cpu_cores = parseInt(document.getElementById('hpc_cpu_cores').value);
+  const gpu_cards = parseInt(document.getElementById('hpc_gpu_cards').value);
+  const memory_gb = parseFloat(document.getElementById('hpc_memory_gb').value);
+
+  const payload = {
+    job_id,
+    qubit_count,
+    code_distance,
+    num_cycles,
+    cpu_cores,
+    gpu_cards,
+    memory_gb
+  };
+  fetch(`${BASE_URL}/hpc/submit_job`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(data => showResponse(data))
+  .catch(err => showResponse({error: err}));
+}
+
+function checkHPCJobStatus() {
+  const job_id = document.getElementById('hpc_job_id_status').value;
+  fetch(`${BASE_URL}/hpc/job_status?job_id=${job_id}`, { method: 'GET' })
+  .then(r => r.json())
+  .then(data => showResponse(data))
+  .catch(err => showResponse({error: err}));
+}
+
+// ==================== IonQ Local ====================
+function runIonqDRB() {
+  const qubitsStr = document.getElementById('ionq_qubits').value;
+  const qubits = qubitsStr.split(',').map(q => parseInt(q.trim()));
+  const depth = parseInt(document.getElementById('ionq_depth').value);
+  const p2q = parseFloat(document.getElementById('ionq_p2q').value);
+
+  const payload = { qubits, depth, p2q };
+  fetch(`${BASE_URL}/ionq/drb`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(data => showResponse(data))
+  .catch(err => showResponse({error: err}));
+}
+
+function runIonqApplication() {
+  const name = document.getElementById('ionq_app_name').value;
+  const width = parseInt(document.getElementById('ionq_app_width').value);
+
+  const payload = { name, width };
+  fetch(`${BASE_URL}/ionq/application`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(data => showResponse(data))
+  .catch(err => showResponse({error: err}));
+}
+
+// ==================== IonQ HPC ====================
+function submitHPCIonq() {
+  const job_id = document.getElementById('ionq_hpc_jobid').value;
+  const benchmark_type = document.getElementById('ionq_bench_type').value;
+  const qubitsStr = document.getElementById('ionq_hpc_qubits').value;
+  const qubits = qubitsStr ? qubitsStr.split(',').map(q => parseInt(q.trim())) : [];
+  const depth = parseInt(document.getElementById('ionq_hpc_depth').value);
+  const p2q = parseFloat(document.getElementById('ionq_hpc_p2q').value);
+  const app_name = document.getElementById('ionq_hpc_app_name').value;
+  const app_width = parseInt(document.getElementById('ionq_hpc_app_width').value);
+
+  let circuit, num_qubits;
+  try {
+    const c = document.getElementById('ionq_hpc_circuit').value;
+    circuit = c ? JSON.parse(c) : [];
+  } catch(e) {
+    showResponse({error: "Invalid IonQ HPC circuit JSON"});
+    return;
+  }
+  num_qubits = parseInt(document.getElementById('ionq_hpc_num_qubits').value);
+
+  const cpu_cores = parseInt(document.getElementById('ionq_hpc_cores').value);
+  const gpu_cards = parseInt(document.getElementById('ionq_hpc_gpus').value);
+  const memory_gb = parseFloat(document.getElementById('ionq_hpc_mem').value);
+
+  let parameters;
+  try {
+    parameters = JSON.parse(document.getElementById('ionq_hpc_params').value);
+  } catch(e) {
+    showResponse({error: "Invalid HPC params JSON for IonQ"});
+    return;
+  }
+
+  const payload = {
+    job_id,
+    benchmark_type,
+    qubits,
+    depth,
+    p2q,
+    app_name,
+    app_width,
+    circuit,
+    num_qubits,
+    cpu_cores,
+    gpu_cards,
+    memory_gb,
+    parameters
+  };
+  fetch(`${BASE_URL}/ionq/submit_hpc_ionq`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(data => showResponse(data))
+  .catch(err => showResponse({error: err}));
+}
+
+// ==================== Memristor (Local) ====================
+function runMemCircuit() {
+  const circuit_id = document.getElementById('mem_circ_id').value;
+  let operations;
+  try {
+    operations = JSON.parse(document.getElementById('mem_circuit_ops').value);
+  } catch(e) {
+    showResponse({error: "Invalid operations JSON"});
+    return;
+  }
+
+  const payload = { circuit_id, operations };
+  fetch(`${BASE_URL}/memristor/run_circuit`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(data => showResponse(data))
+  .catch(err => showResponse({error: err}));
+}
+
+// ==================== Memristor HPC ====================
+function submitHPCMemristor() {
+  const job_id = document.getElementById('mem_hpc_jobid').value;
+  const circuit_id = document.getElementById('mem_hpc_circid').value;
+  let ops;
+  try {
+    ops = JSON.parse(document.getElementById('mem_hpc_ops').value);
+  } catch(e) {
+    showResponse({error: "Invalid HPC memristor ops JSON"});
+    return;
+  }
+
+  const cpu_cores = parseInt(document.getElementById('mem_hpc_cores').value);
+  const gpu_cards = parseInt(document.getElementById('mem_hpc_gpus').value);
+  const memory_gb = parseFloat(document.getElementById('mem_hpc_mem').value);
+
+  let parameters;
+  try {
+    parameters = JSON.parse(document.getElementById('mem_hpc_params').value);
+  } catch(e) {
+    showResponse({error: "Invalid HPC memristor params JSON"});
+    return;
+  }
+
+  const payload = {
+    job_id,
+    circuit_id,
+    operations: ops,
+    cpu_cores,
+    gpu_cards,
+    memory_gb,
+    parameters
+  };
+  fetch(`${BASE_URL}/memristor/submit_hpc_memristor`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(data => showResponse(data))
+  .catch(err => showResponse({error: err}));
+}
+
+// ==================== Surface Code (Local) ====================
+function measureSurfaceStabilizers() {
+  const distance = parseInt(document.getElementById('sc_distance').value);
+  const cycle_index = parseInt(document.getElementById('sc_cycle_index').value);
+  const payload = { distance, cycle_index };
+
+  fetch(`${BASE_URL}/surface_code/measure_stabilizers`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(data => showResponse(data))
+  .catch(err => showResponse({error: err}));
+}
+
+function decodeSurfaceSyndrome() {
+  const distance = parseInt(document.getElementById('sc_distance_decode').value);
+  let stabilizer_data;
+  try {
+    stabilizer_data = JSON.parse(document.getElementById('sc_stabilizer_data').value);
+  } catch(e) {
+    showResponse({error: "Invalid stabilizer_data JSON"});
+    return;
+  }
+
+  const payload = { distance, stabilizer_data };
+  fetch(`${BASE_URL}/surface_code/decode_syndrome`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(data => showResponse(data))
+  .catch(err => showResponse({error: err}));
+}
+
+// ==================== Surface Code (HPC) ====================
+function submitMultiRoundQEC() {
+  const job_id = document.getElementById('sc_hpc_jobid').value;
+  const distance = parseInt(document.getElementById('sc_hpc_distance').value);
+  const rounds = parseInt(document.getElementById('sc_hpc_rounds').value);
+
+  const cpu_cores = parseInt(document.getElementById('sc_hpc_cores').value);
+  const gpu_cards = parseInt(document.getElementById('sc_hpc_gpus').value);
+  const memory_gb = parseFloat(document.getElementById('sc_hpc_mem').value);
+
+  let parameters;
+  try {
+    parameters = JSON.parse(document.getElementById('sc_hpc_params').value);
+  } catch(e) {
+    showResponse({error: "Invalid HPC surface code params JSON"});
+    return;
+  }
+
+  const payload = {
+    job_id,
+    distance,
+    rounds,
+    cpu_cores,
+    gpu_cards,
+    memory_gb,
+    parameters
+  };
+  fetch(`${BASE_URL}/surface_code/run_multi_round_qec`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(data => showResponse(data))
+  .catch(err => showResponse({error: err}));
+}
+</script>
+</body>
+</html>

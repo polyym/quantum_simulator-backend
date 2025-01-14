@@ -1,66 +1,132 @@
-Below is an **updated** `README.md` that **includes** all the essential steps regarding:
-
-- Creating a **virtual environment**  
-- Installing/updating **requirements**  
-- Using **`test_form.html`** to test the API in a **local** environment  
-
-Feel free to tweak any details (like repository name or command specifics) to match your actual setup.
-
----
-
-```markdown
 # Quantum Simulator Backend
 
-This project contains a **FastAPI + QuTiP** backend designed to handle a variety of quantum computing functionalities:
+This project is a **FastAPI + QuTiP** backend designed to handle a variety of quantum computing functionalities:
 
-- **Quantum System Simulation** (general gates, noise models, measurement)
-- **HPC** (High-Performance Computing) quantum system creation/management
-- **IonQ**-style benchmarking (DRB, application benchmarks, etc.)
-- **Memristor-based** quantum gate accelerators
+- **Quantum System Simulation** (general gates, noise models, measurement)  
+- **HPC** (High-Performance Computing) quantum job submission & resource management  
+- **IonQ**-style benchmarking (DRB, application benchmarks, etc.)  
+- **Memristor-based** quantum gate accelerators (parallel gate modeling)  
+- **Surface Code** error correction (stabilizers, decoding, multi-round QEC)
 
-All features are exposed via **HTTP endpoints** for easy integration with frontends or external clients. A **router-based design** ensures each domain (HPC, IonQ, Memristor, and general quantum system) remains modular.
+All features are exposed via **HTTP endpoints** for easy integration with frontends or external clients. The code uses a **router-based design**, with each domain (HPC, IonQ, Memristor, surface code, and quantum system) in separate files.
 
 ---
 
 ## Table of Contents
 
 1. [Features](#features)  
-2. [Repository Structure](#repository-structure)  
-3. [Requirements](#requirements)  
-4. [Installation](#installation)  
-5. [Running the Server](#running-the-server)  
-6. [Usage](#usage)  
-7. [Endpoints](#endpoints)  
-8. [Troubleshooting](#troubleshooting)  
-9. [License](#license)
+2. [Architecture](#architecture)  
+3. [Repository Structure](#repository-structure)  
+4. [Requirements](#requirements)  
+5. [Installation](#installation)  
+6. [Running the Server](#running-the-server)  
+7. [Usage](#usage)  
+8. [Endpoints](#endpoints)  
+9. [Troubleshooting](#troubleshooting)  
+10. [License](#license)
 
 ---
 
 ## Features
 
 - **Quantum System**  
-  - Apply single- and multi-qubit gates (H, X, Y, Z, Phase, T, Swap, CNOT, etc.)  
-  - Noise modeling (amplitude, phase damping, depolarizing)  
-  - Retrieve final quantum state as `[real, imag]` pairs  
-  - Perform measurements and retrieve shot counts  
+  - Single- and multi-qubit gates (X, Y, Z, Phase, T, Swap, CNOT, etc.)  
+  - Optional noise modeling (amplitude/phase damping, depolarizing)  
+  - Local or HPC-based simulation, returning final states or measurement outcomes  
 
 - **HPC**  
-  - Abstract machine models (Asymmetric, Accelerator, Quantum Accelerator)  
-  - HPC system creation, HPC instructions, distributed algorithms  
+  - Job coordination (`coordinator.py`) with states (*QUEUED, RUNNING, COMPLETED, FAILED, CANCELED*)  
+  - Resource management (`resource_manager.py`) for CPU/GPU/memory requests  
+  - HPC synergy in each router to handle large/distributed tasks  
 
 - **IonQ**  
-  - IonQ device creation (`IonQDevice`)  
-  - Direct Randomized Benchmarking (DRB), application benchmarks (hamiltonian_simulation, phase_estimation, QFT, etc.)  
-  - Error mitigation, circuit optimization, timing analysis  
+  - IonQ device simulation (via QuTiP or placeholders)  
+  - DRB (Direct Randomized Benchmarking), application benchmarks (QFT, Hamiltonian sim), error mitigation  
+  - HPC endpoints for big IonQ tasks or repeated DRB  
 
 - **Memristor Gates**  
-  - Parallel quantum operations on a memristor-based crossbar  
-  - Detailed power metrics (static/dynamic power, switching energy)  
-  - Additional gates: SWAP, √SWAP, CCNOT, etc.
+  - Parallel quantum ops on memristor crossbars  
+  - Power metrics (static/dynamic power, total energy)  
+  - HPC synergy for large or multi-node memristor tasks  
+
+- **Surface Code**  
+  - Single-round stabilizer measure and decode  
+  - Multi-round QEC HPC endpoint for distance scaling, repeated cycles  
 
 - **Router-Based Design**  
-  - Separate routers for HPC, IonQ, Memristor, and general quantum system  
-  - `main.py` orchestrates and includes each router with a prefix (e.g. `/hpc`, `/ionq`, `/qsystem`, `/memristor`)
+  - Distinct URL prefixes for HPC (`/hpc`), IonQ (`/ionq`), Memristor (`/memristor`), Quantum System (`/qsystem`), Surface Code (`/surface_code`)  
+  - Maintains code clarity and easy expansions
+
+---
+
+## Architecture
+
+A **high-level overview** of how modules fit together:
+
+1. **FastAPI Application**  
+   - **`main.py`**: The entry point that includes each router (HPC, IonQ, Memristor, quantum system, surface code).  
+   - Global exception handlers for uniform error responses.
+
+2. **Quantum System** (`src/quantum_system/`)  
+   - Local or HPC-based simulation logic (e.g., `error_correction.py`, `language.py`, `network.py`).  
+   - **`quantum_system_router.py`**: endpoints for create/apply/measure and HPC distributed simulation.
+
+3. **Quantum HPC** (`src/quantum_hpc/`)  
+   - **`distributed/`**: HPC job coordinator, resource manager, synchronization.  
+   - **`devices/`**: advanced QEC codes (e.g., surface code).  
+   - **`hardware/`**: noise models, calibration, topologies.  
+   - **`virtualization/`**: bridging HPC tasks with quantum logic.  
+   - **`hpc_router.py`**: HPC job submission, job status checks, resource usage.
+
+4. **IonQ Benchmarking** (`src/ionq_benchmarking/`)  
+   - IonQ-like DRB, application benchmarks, error mitigation.  
+   - HPC synergy for large circuits or repeated tasks in `ionq_router.py`.
+
+5. **Memristor Gates** (`src/memristor_gates/`)  
+   - `enhanced_gates.py`: parallel memristor crossbar classes.  
+   - `memristor_router.py`: local runs vs HPC synergy for big circuits.
+
+6. **Surface Code**  
+   - Found in `quantum_hpc/devices/surface_code/` (stabilizer, decoder, logical ops).  
+   - `surface_code_router.py`: local or HPC multi-round QEC.
+
+7. **Utilities** (`src/utils/`)  
+   - Shared code: error analysis, metrics collection, benchmarking, visualization.
+
+### Advanced Architecture Insights
+
+#### Module Interaction Flow
+
+The quantum simulator backend uses a carefully designed interaction model:
+
+1. **Request Routing**
+   - Incoming HTTP requests are first processed by FastAPI routers
+   - Routers validate input and delegate to appropriate domain-specific modules
+
+2. **Quantum System Simulation Flow**
+   ```python
+   def simulate_quantum_system(system_config):
+       # Validate system configuration
+       validated_config = validate_config(system_config)
+       
+       # Initialize quantum system
+       quantum_system = QuantumSystem(validated_config)
+       
+       # Apply quantum operations
+       for operation in validated_config.operations:
+           quantum_system.apply_operation(operation)
+       
+       # Perform measurement
+       measurement_result = quantum_system.measure()
+       
+       return measurement_result
+   ```
+
+3. **HPC Resource Allocation**
+   - Dynamic resource allocation based on:
+     - Available computational resources
+     - Complexity of quantum simulation
+     - User-defined constraints
 
 ---
 
@@ -72,41 +138,92 @@ quantum_simulator-backend/
 ├── requirements.txt
 ├── README.md
 ├── test_form.html
+├── start.sh
 └── src/
     ├── routers/
+    │   ├── __init__.py
     │   ├── quantum_system_router.py
     │   ├── hpc_router.py
     │   ├── ionq_router.py
-    │   └── memristor_router.py
+    │   ├── memristor_router.py
+    │   └── surface_code_router.py
     ├── quantum_system/
+    │   ├── __init__.py
+    │   ├── error_correction.py
+    │   ├── language.py
+    │   └── network.py
     ├── quantum_hpc/
+    │   ├── __init__.py
+    │   ├── abstract/
+    │   │   ├── __init__.py
+    │   │   ├── quantum_processor.py
+    │   │   ├── error_correction.py
+    │   │   └── interconnect.py
+    │   ├── devices/
+    │   │   ├── __init__.py
+    │   │   ├── surface_code/
+    │   │   │   ├── __init__.py
+    │   │   │   ├── stabilizer.py
+    │   │   │   ├── decoder.py
+    │   │   │   └── logical_ops.py
+    │   │   ├── bacon_shor/...
+    │   │   └── color_code/...
+    │   ├── distributed/
+    │   │   ├── __init__.py
+    │   │   ├── coordinator.py
+    │   │   ├── resource_manager.py
+    │   │   └── synchronization.py
+    │   ├── hardware/
+    │   │   ├── __init__.py
+    │   │   ├── topology.py
+    │   │   ├── noise_model.py
+    │   │   └── calibration.py
+    │   └── virtualization/
+    │       ├── __init__.py
+    │       ├── simulation.py
+    │       └── emulation.py
     ├── ionq_benchmarking/
-    └── memristor_gates/
+    │   ├── __init__.py
+    │   ├── core.py
+    │   ├── error_mitigation.py
+    │   └── timing.py
+    ├── memristor_gates/
+    │   ├── __init__.py
+    │   └── enhanced_gates.py
+    └── utils/
+        ├── __init__.py
+        ├── benchmarking.py
+        ├── error_analysis.py
+        ├── metrics_collection.py
+        └── visualization.py
 ```
 
-- **`main.py`**: FastAPI entry point. Imports each router and includes them.  
-- **`src/routers/`**: Each router file (HPC, IonQ, Memristor, quantum system, etc.) has domain-specific endpoints.  
-- **`test_form.html`**: A simple HTML file to test endpoints locally in your browser.  
+- **`main.py`**: FastAPI entry point (with global exception handlers)  
+- **`test_form.html`**: Testing interface for local & HPC endpoints  
+- **`start.sh`**: Script for container-based or Render deployment  
+- **`src/`** subdirectories hold domain logic (quantum_system, HPC, IonQ, memristor, etc.).
 
 ---
 
 ## Requirements
 
-- **Python 3.8+** (3.10 or 3.11 recommended)  
-- **pip** or another package manager  
-- **QuTiP** for quantum simulation  
-- **FastAPI** and **Uvicorn** for the web server
+- **Python 3.8+** (3.10 recommended)
+- **pip** or another package manager
+- **QuTiP** (for quantum simulation steps)
+- **FastAPI**, **Uvicorn** for the web server
+- **Pydantic** for request/response models
+- **NumPy** (plus HPC dependencies if needed)
 
 ### Python Libraries
 
-| Library   | Purpose                                   |
-|-----------|-------------------------------------------|
-| `fastapi` | Web API framework                         |
-| `uvicorn` | ASGI server to run FastAPI                |
-| `qutip`   | Quantum simulation & operations           |
-| `numpy`   | Numerical computations                    |
-| `pydantic`| Validation of request payloads            |
-| `...`     | HPC, IonQ, memristor, or other deps       |
+| Library     | Purpose                                            |
+|-------------|----------------------------------------------------|
+| `fastapi`   | Web API framework                                  |
+| `uvicorn`   | ASGI server for serving FastAPI                    |
+| `qutip`     | Quantum simulation / state manipulation            |
+| `numpy`     | Numerical computations                             |
+| `pydantic`  | Request/response validation                        |
+| `...`       | HPC, IonQ, memristor, or other domain dependencies |
 
 ---
 
@@ -124,32 +241,27 @@ quantum_simulator-backend/
    ```bash
    python -m venv venv
    ```
-   - On **Windows**:
+   - **Windows**:
      ```bash
      venv\Scripts\activate
      ```
-   - On **macOS/Linux**:
+   - **macOS/Linux**:
      ```bash
      source venv/bin/activate
      ```
 
 3. **Install dependencies**:
+
    ```bash
    pip install -r requirements.txt
    ```
-   - If you don’t have a `requirements.txt` file yet, run:
-     ```bash
-     pip install fastapi uvicorn qutip
-     OR
-     python -m pip install fastapi uvicorn qutip
-     ```
-     Then:
-     ```bash
-     pip freeze > requirements.txt
-     ```
-   This ensures all needed packages (FastAPI, Uvicorn, QuTiP, etc.) are installed.
+   If you haven't generated `requirements.txt`, run:
+   ```bash
+   pip install fastapi uvicorn qutip numpy pydantic
+   pip freeze > requirements.txt
+   ```
 
-4. **(Optional) Update the requirements** if you add new dependencies:
+4. **Update** `requirements.txt` when adding new dependencies:
    ```bash
    pip freeze > requirements.txt
    ```
@@ -158,114 +270,144 @@ quantum_simulator-backend/
 
 ## Running the Server
 
-1. **Activate** your virtual environment (if not already).
-2. **Run** the FastAPI server using Uvicorn:
+1. **Activate** your virtual environment if not already active.
+2. **Start** with Uvicorn:
+
    ```bash
    uvicorn main:app --reload --port 8000
    ```
-   - `--reload` auto-restarts on code changes.
-   - Open <http://127.0.0.1:8000/health> in your browser to confirm a basic “OK” response.
+   - The app is at [http://127.0.0.1:8000](http://127.0.0.1:8000)
+   - Check [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health) for "OK" status.
+
+3. **Deploy**  
+   - If using Render or Docker, use `start.sh`:
+     ```bash
+     #!/usr/bin/env bash
+     uvicorn main:app --host 0.0.0.0 --port $PORT
+     ```
 
 ---
 
 ## Usage
 
-### 1. Test Locally with `test_form.html`
+### 1. Testing Locally via `test_form.html`
 
-- In this repo, there’s a file **`test_form.html`** at the root.
-- **Open** `test_form.html` in a **browser** (double-click or drag it into a tab).
-- You’ll see multiple sections for HPC, IonQ, quantum system `/simulate`, and memristor gates.
-- Enter the desired inputs (number of qubits, HPC model, gate definitions, etc.) and click the **button** to send a **fetch** request to the corresponding endpoints.
-- The **response** appears in a `<pre>` block at the bottom.
+- **Open** `test_form.html` in your browser.  
+- Local endpoints: (e.g., `/qsystem/create_system`, `/ionq/drb`, `/memristor/run_circuit`)  
+- HPC synergy endpoints: (e.g., `/hpc/submit_job`, `/qsystem/submit_distributed_simulation`, etc.)  
+- **Fill** out forms, **click** "Submit." Results appear in `<pre>`.
 
-### 2. Using cURL or Postman
+### 2. cURL / Postman
 
-You can also **POST** or **GET** calls via cURL, Postman, or other REST clients. For example:
-
-- **Quantum System**:  
+- **Local HPC** job:
   ```bash
   curl -X POST -H "Content-Type: application/json" \
        -d '{
-         "num_qubits": 2,
-         "gates": [
-           {"gate": "H", "qubits": [0]},
-           {"gate": "CNOT", "qubits": [0,1]}
-         ],
-         "shots": 1000
+         "job_id":"job123",
+         "qubit_count":10,
+         "code_distance":3,
+         "num_cycles":2,
+         "cpu_cores":2,
+         "gpu_cards":0,
+         "memory_gb":4
        }' \
-       http://127.0.0.1:8000/qsystem/simulate
+       http://127.0.0.1:8000/hpc/submit_job
   ```
-- **HPC**:  
+- **Distributed Simulation** (Quantum System):
   ```bash
   curl -X POST -H "Content-Type: application/json" \
-       -d '{"num_nodes":3,"model_type":"asymmetric"}' \
-       http://127.0.0.1:8000/hpc/create
+       -d '{
+         "job_id":"dist_sim_1",
+         "num_qubits":10,
+         "code_distance":3,
+         "num_cycles":2,
+         "cpu_cores":2,
+         "gpu_cards":0,
+         "memory_gb":4
+       }' \
+       http://127.0.0.1:8000/qsystem/submit_distributed_simulation
   ```
-- **IonQ**:  
+- **IonQ HPC**:
   ```bash
   curl -X POST -H "Content-Type: application/json" \
-       -d '{"device_id":"ionq-123","qubits":[0,1],"depth":10,"p2q":0.25}' \
-       http://127.0.0.1:8000/ionq/device/drb
+       -d '{
+         "job_id":"ionq_job_1",
+         "benchmark_type":"drb",
+         "qubits":[0,1],
+         "depth":10,
+         "p2q":0.25,
+         "cpu_cores":2,
+         "gpu_cards":0,
+         "memory_gb":4
+       }' \
+       http://127.0.0.1:8000/ionq/submit_hpc_ionq
   ```
-- **Memristor**:  
+- **Surface Code Multi-Round QEC**:
   ```bash
   curl -X POST -H "Content-Type: application/json" \
-       -d '{"max_parallel_ops":4}' \
-       http://127.0.0.1:8000/memristor/accelerator/create
+       -d '{
+         "job_id":"sc_qec_job1",
+         "distance":5,
+         "rounds":10,
+         "cpu_cores":2,
+         "gpu_cards":0,
+         "memory_gb":4
+       }' \
+       http://127.0.0.1:8000/surface_code/run_multi_round_qec
   ```
 
 ---
 
 ## Endpoints
 
-Since each feature is in its own router:
+1. **Quantum System** (`/qsystem/...`)  
+   - Local: `POST /qsystem/create_system`, `POST /qsystem/apply_operation`, `POST /qsystem/measure`  
+   - HPC synergy: `POST /qsystem/submit_distributed_simulation`
 
-- **HPC** (`/hpc/...`)  
-  - `POST /hpc/create`  
-  - `GET /hpc/{hpc_id}/info`  
-  - etc.
+2. **HPC** (`/hpc/...`)  
+   - `POST /hpc/submit_job` for general HPC jobs  
+   - `GET /hpc/job_status?job_id=...`  
+   - `GET /hpc/list_jobs` (optional)  
+   - `DELETE /hpc/cancel_job?job_id=...`
 
-- **IonQ** (`/ionq/...`)  
-  - `POST /ionq/device/create`  
-  - `POST /ionq/device/drb`  
-  - etc.
+3. **IonQ** (`/ionq/...`)  
+   - Local: `POST /ionq/drb`, `POST /ionq/application`  
+   - HPC synergy: `POST /ionq/submit_hpc_ionq`
 
-- **Quantum System** (`/qsystem/...`)  
-  - `POST /qsystem/simulate`  
-  - etc.
+4. **Memristor** (`/memristor/...`)  
+   - Local: `POST /memristor/run_circuit`  
+   - HPC synergy: `POST /memristor/submit_hpc_memristor`
 
-- **Memristor** (`/memristor/...`)  
-  - `POST /memristor/accelerator/create`  
-  - `POST /memristor/accelerator/execute_circuit`  
-  - etc.
+5. **Surface Code** (`/surface_code/...`)  
+   - Local: `POST /surface_code/measure_stabilizers`, `POST /surface_code/decode_syndrome`  
+   - HPC synergy: `POST /surface_code/run_multi_round_qec`
 
-Additionally, you might have a `GET /health` (in `main.py` or one of the routers) returning basic status info.
+6. **Health Check**  
+   - `GET /health` => Returns `"status":"OK"` plus app version.
 
 ---
 
 ## Troubleshooting
 
-1. **Method Not Allowed (405)**  
-   - Check if you’re using the **correct** HTTP method (e.g., POST instead of GET).
-   - Verify the **URL** includes the correct router prefix.
+1. **HTTP 405 (Method Not Allowed)**  
+   - Verify the correct HTTP method (POST vs GET vs DELETE).
 
-2. **JSON Serialization Issues**  
-   - Complex numbers are returned as lists of `[real, imag]`. If you see `"complex" object is not JSON serializable`, confirm your code does the conversion to `[real, imag]` pairs.
+2. **404 (Not Found)**  
+   - Confirm you typed the router prefix (`/qsystem`, `/hpc`, etc.) properly.
 
-3. **Large Qubit Counts**  
-   - QuTiP can get slow with large `num_qubits` because the state-space grows exponentially. Try smaller circuits or partial solutions for big HPC tasks.
+3. **JSON Errors**  
+   - Check that your request body is valid JSON. For HPC synergy, watch out for bracket/quote mistakes in `parameters` or circuit arrays.
 
-4. **CORS or Browser Errors**  
-   - By default, `allow_origins=["*"]` is set for development in `main.py`. For production, restrict to specific domains.
+4. **CORS Issues**  
+   - The default in `main.py` is `allow_origins=["*"]` for local dev. Restrict to your front-end domain in production.
 
-5. **Missing Endpoints**  
-   - If 404, confirm `main.py` calls `app.include_router(...)` for the desired router, and that the **prefix** matches your request path.
+5. **Performance**  
+   - Large HPC tasks (e.g., big IonQ DRB or surface code with distance=25) might be slow. Expand HPC nodes or reduce problem size.
+
+6. **HPC Resource Failures**  
+   - If HPC resource manager says “Insufficient HPC resources”, reduce CPU/GPU or memory requests, or update `ResourceManager(total_cores=..., total_gpus=..., total_memory_gb=...)` for your cluster specs.
 
 ---
-
-## License
-
-(Include your license of choice, e.g., MIT, Apache 2.0, or proprietary.)
 
 ---
 

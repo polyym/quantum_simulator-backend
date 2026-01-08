@@ -1,16 +1,36 @@
 # src/quantum_hpc/distributed/__init__.py
 
 """
-Distributed HPC support for quantum simulations:
-job coordination, resource management, and synchronization.
+Distributed HPC Package
+
+Job coordination and resource management:
+- coordinator: HPC job lifecycle management
+- resource_manager: CPU/GPU/memory allocation
+- synchronization: Distributed synchronization primitives
+
+Version: 3.0.0
 """
 
-# from .coordinator import HPCJobCoordinator
-# from .resource_manager import ResourceManager
-# from .synchronization import DistributedSynchronization
+from .coordinator import HPCJobCoordinator, HPCJob, HPCJobState
+from .resource_manager import (
+    ResourceManager,
+    ResourceRequest,
+    ResourceAllocation,
+    HPCResourceStats,
+)
+from .synchronization import DistributedSynchronization, SynchronizationConfig
 
 __all__ = [
-    # 'HPCJobCoordinator',
-    # 'ResourceManager',
-    # 'DistributedSynchronization'
+    # Coordinator
+    "HPCJobCoordinator",
+    "HPCJob",
+    "HPCJobState",
+    # Resource Manager
+    "ResourceManager",
+    "ResourceRequest",
+    "ResourceAllocation",
+    "HPCResourceStats",
+    # Synchronization
+    "DistributedSynchronization",
+    "SynchronizationConfig",
 ]

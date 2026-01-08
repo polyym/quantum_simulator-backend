@@ -6,25 +6,25 @@ resource allocation, and job status queries.
 """
 
 import logging
+import re
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, Dict, Any, List
 
-# Import your HPC modules:
-from src.quantum_hpc.distributed.coordinator import HPCJobCoordinator, HPCJob, HPCJobState
-from src.quantum_hpc.distributed.resource_manager import ResourceManager, ResourceRequest
-from src.quantum_hpc.distributed.resource_manager import HPCResourceStats
+# Shared services
+from src.services import get_hpc_coordinator, get_resource_manager
+from src.config import get_settings
+
+# Import HPC types
+from src.quantum_hpc.distributed.coordinator import HPCJob
+from src.quantum_hpc.distributed.resource_manager import ResourceRequest
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# Example HPC job coordinator and resource manager:
-coordinator = HPCJobCoordinator()
-resource_manager = ResourceManager(total_cores=128, total_gpus=8, total_memory_gb=256.0)
-
 
 # -----------------------------
-# Pydantic Models
+# Pydantic Models with Validation
 # -----------------------------
 
 class HPCJobCreateRequest(BaseModel):
@@ -32,14 +32,30 @@ class HPCJobCreateRequest(BaseModel):
     Request model for creating and scheduling an HPC job,
     optionally with resource requirements.
     """
-    job_id: str
-    qubit_count: int
-    code_distance: int = 3
-    num_cycles: int = 1
-    parameters: Dict[str, Any] = {}
-    cpu_cores: int = 1
-    gpu_cards: int = 0
-    memory_gb: float = 1.0
+    job_id: str = Field(..., min_length=1, max_length=100)
+    qubit_count: int = Field(..., ge=1)
+    code_distance: int = Field(default=3, ge=1, le=25)
+    num_cycles: int = Field(default=1, ge=1, le=10000)
+    parameters: Dict[str, Any] = Field(default_factory=dict)
+    cpu_cores: int = Field(default=1, ge=1, le=256)
+    gpu_cards: int = Field(default=0, ge=0, le=16)
+    memory_gb: float = Field(default=1.0, gt=0, le=1024)
+
+    @field_validator('job_id')
+    @classmethod
+    def validate_job_id(cls, v):
+        if not re.match(r'^[a-zA-Z0-9_-]+$', v):
+            raise ValueError("job_id must contain only alphanumeric characters, underscores, and hyphens")
+        return v
+
+    @field_validator('qubit_count')
+    @classmethod
+    def validate_qubit_count(cls, v):
+        settings = get_settings()
+        if v > settings.quantum_max_qubits:
+            raise ValueError(f"qubit_count must be <= {settings.quantum_max_qubits}")
+        return v
+
 
 class HPCJobCreateResponse(BaseModel):
     """
@@ -47,6 +63,7 @@ class HPCJobCreateResponse(BaseModel):
     """
     job_id: str
     message: str
+
 
 class HPCJobStatusResponse(BaseModel):
     """
@@ -60,11 +77,13 @@ class HPCJobStatusResponse(BaseModel):
     result: Dict[str, Any]
     error: Optional[str] = None
 
+
 class HPCJobListResponse(BaseModel):
     """
     For listing all HPC jobs in the system.
     """
     jobs: List[HPCJobStatusResponse]
+
 
 class HPCResourceUsageResponse(BaseModel):
     """
@@ -80,6 +99,7 @@ class HPCResourceUsageResponse(BaseModel):
     used_memory_gb: float
     free_memory_gb: float
 
+
 # -----------------------------
 # Routes
 # -----------------------------
@@ -90,6 +110,9 @@ def submit_job(payload: HPCJobCreateRequest):
     Submit a new HPC quantum job, optionally requesting resources
     and scheduling via HPCJobCoordinator.
     """
+    coordinator = get_hpc_coordinator()
+    resource_manager = get_resource_manager()
+
     # 1) Attempt to allocate resources if desired:
     request = ResourceRequest(
         job_id=payload.job_id,
@@ -110,7 +133,6 @@ def submit_job(payload: HPCJobCreateRequest):
         code_distance=payload.code_distance,
         num_cycles=payload.num_cycles,
         parameters=payload.parameters,
-        # If you want a callback: callback=my_callback_function
     )
     try:
         coordinator.submit_job(job)
@@ -125,11 +147,13 @@ def submit_job(payload: HPCJobCreateRequest):
         message=f"Job '{payload.job_id}' submitted successfully and resources allocated."
     )
 
+
 @router.get("/job_status", response_model=HPCJobStatusResponse)
 def job_status(job_id: str):
     """
     Retrieve the status of an HPC quantum job from HPCJobCoordinator.
     """
+    coordinator = get_hpc_coordinator()
     job = coordinator.get_job_status(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
@@ -143,11 +167,13 @@ def job_status(job_id: str):
         error=job.error
     )
 
+
 @router.get("/list_jobs", response_model=HPCJobListResponse)
 def list_jobs():
     """
     List all HPC jobs known to the coordinator.
     """
+    coordinator = get_hpc_coordinator()
     jobs = coordinator.list_jobs()
     response_jobs = []
     for j in jobs:
@@ -162,20 +188,25 @@ def list_jobs():
         ))
     return HPCJobListResponse(jobs=response_jobs)
 
+
 @router.delete("/cancel_job")
 def cancel_job(job_id: str):
     """
     Attempt to cancel an HPC job, releasing resources if allocated.
     """
+    coordinator = get_hpc_coordinator()
+    resource_manager = get_resource_manager()
+
     # 1) Release HPC resources first (if allocated).
     resource_released = resource_manager.release_resources(job_id)
     # 2) Cancel job in coordinator.
     canceled = coordinator.cancel_job(job_id)
-    
+
     if canceled:
         return {"status": "success", "message": f"Job '{job_id}' canceled. Resources released={resource_released}"}
     else:
         return {"status": "warning", "message": f"Unable to cancel job '{job_id}'. Job may not exist or is completed."}
+
 
 @router.post("/process_queue")
 def process_queue():
@@ -186,11 +217,13 @@ def process_queue():
     # If you had a real queue, you'd do coordinator.process_queue() or similar.
     return {"message": "HPC queue processed (no-op)."}
 
+
 @router.get("/resources", response_model=HPCResourceUsageResponse)
 def get_hpc_resources():
     """
     Return a snapshot of HPC resource usage from ResourceManager.
     """
+    resource_manager = get_resource_manager()
     stats = resource_manager.get_current_usage()
     return HPCResourceUsageResponse(
         total_cores=stats.total_cores,

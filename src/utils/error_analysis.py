@@ -8,6 +8,7 @@ and IonQ benchmarking approaches.
 
 from typing import Dict, List, Optional, Tuple, Any
 import numpy as np
+from scipy import stats
 from dataclasses import dataclass
 from enum import Enum
 import logging

@@ -1,28 +1,36 @@
 # src/quantum_hpc/__init__.py
 
 """
-Quantum HPC package initialization.
-Provides HPC-based quantum simulations, distributed coordination,
-hardware models, and virtualization features.
+Quantum HPC Package
+
+High-performance computing infrastructure for quantum simulations:
+- abstract: Base classes for quantum processors and error correction
+- devices: QEC implementations (surface code, Bacon-Shor)
+- distributed: Job coordination and resource management
+- hardware: Topology, noise models, calibration
+- virtualization: Simulation engines
+
+Version: 3.0.0
 """
 
 import logging
 
-__version__ = "0.1.0"
+__version__ = "3.0.0"
 
 logger = logging.getLogger(__name__)
 
-# Optionally re-export key modules/classes for convenience:
-# from .abstract.quantum_processor import QuantumProcessor
-# from .abstract.error_correction import ErrorCorrectionScheme
-# from .distributed.coordinator import HPCJobCoordinator
-# from .hardware.topology import QuantumTopology
-# from .virtualization.simulation import QuantumSimulationEngine
+# Subpackages
+from . import abstract
+from . import devices
+from . import distributed
+from . import hardware
+from . import virtualization
 
 __all__ = [
-    # 'QuantumProcessor',
-    # 'ErrorCorrectionScheme',
-    # 'HPCJobCoordinator',
-    # 'QuantumTopology',
-    # 'QuantumSimulationEngine'
+    "__version__",
+    "abstract",
+    "devices",
+    "distributed",
+    "hardware",
+    "virtualization",
 ]

@@ -1,69 +1,206 @@
 # src/quantum_hpc/devices/surface_code/stabilizer.py
 
+"""
+Surface Code Stabilizer Measurement Module
+
+This module implements stabilizer measurements for surface code quantum error correction.
+Key physics concepts:
+- X stabilizers detect Z (bit-flip) errors
+- Z stabilizers detect X (phase-flip) errors
+- Detection events are computed as XOR of consecutive syndrome measurements
+- Syndrome history is essential for proper error tracking across QEC cycles
+
+References:
+- Fowler et al., "Surface codes: Towards practical large-scale quantum computation"
+- Google Quantum AI, "Suppressing quantum errors by scaling a surface code logical qubit"
+"""
+
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Any, Tuple, Union, Optional
+from copy import deepcopy
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class StabilizerMeasurementResult:
     """
     Container for measured stabilizer results in a surface code cycle.
-    
+
     Attributes:
-        X_stabilizers: 2D array (as list of lists) or flattened list of X-stabilizer measurements
-        Z_stabilizers: 2D array (as list of lists) or flattened list of Z-stabilizer measurements
-        detection_events: Optional data structure indicating changes in stabilizer outcomes over time
-        measurement_fidelity: Approximate fidelity or confidence in these stabilizer measurements
-        metadata: Optional dictionary for additional information (e.g., cycle index, timestamp)
+        X_stabilizers: 2D array of X-stabilizer measurements (0 or 1).
+                       Value of 1 indicates an error was detected.
+        Z_stabilizers: 2D array of Z-stabilizer measurements (0 or 1).
+        detection_events: Changes in stabilizer outcomes between this cycle and previous.
+                         This is the actual syndrome used for decoding (XOR of consecutive measurements).
+        measurement_fidelity: Approximate fidelity or confidence in these stabilizer measurements.
+        cycle_index: Which QEC cycle this measurement belongs to.
+        metadata: Additional information (timestamps, error rates, etc.)
+
+    Physics Note:
+        Detection events (not raw stabilizer values) are what the decoder uses.
+        A detection event occurs when a stabilizer changes value between rounds,
+        indicating an error occurred. This is computed as:
+            detection_event[i] = stabilizer[cycle][i] XOR stabilizer[cycle-1][i]
     """
     X_stabilizers: List[List[int]]
     Z_stabilizers: List[List[int]]
-    detection_events: Optional[List[Any]] = None
+    detection_events: Optional[Dict[str, List[List[int]]]] = None
     measurement_fidelity: float = 1.0
-    metadata: Dict[str, Any] = None
+    cycle_index: int = 0
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class SyndromeHistory:
+    """
+    Maintains syndrome measurement history across multiple QEC cycles.
+
+    This is essential for proper surface code operation because:
+    1. Detection events require comparing consecutive measurements
+    2. The decoder needs the full syndrome history for temporal matching
+    3. Measurement errors can create "vertical" error chains in spacetime
+
+    Attributes:
+        X_history: List of X-stabilizer measurements per cycle
+        Z_history: List of Z-stabilizer measurements per cycle
+        detection_history: List of detection events per cycle
+        max_history: Maximum number of cycles to retain (for memory management)
+    """
+    X_history: List[List[List[int]]] = field(default_factory=list)
+    Z_history: List[List[List[int]]] = field(default_factory=list)
+    detection_history: List[Dict[str, List[List[int]]]] = field(default_factory=list)
+    max_history: int = 100
+
+    def add_measurement(self,
+                        X_stabilizers: List[List[int]],
+                        Z_stabilizers: List[List[int]]) -> Dict[str, List[List[int]]]:
+        """
+        Add a new measurement and compute detection events.
+
+        Args:
+            X_stabilizers: Current X-stabilizer measurements
+            Z_stabilizers: Current Z-stabilizer measurements
+
+        Returns:
+            Detection events for this cycle (XOR with previous cycle)
+        """
+        # Compute detection events (XOR with previous measurement)
+        if self.X_history and self.Z_history:
+            prev_X = self.X_history[-1]
+            prev_Z = self.Z_history[-1]
+            X_detection = self._compute_xor(X_stabilizers, prev_X)
+            Z_detection = self._compute_xor(Z_stabilizers, prev_Z)
+        else:
+            # First cycle: detection events are just the raw measurements
+            # (compared against implicit "all zeros" initial state)
+            X_detection = deepcopy(X_stabilizers)
+            Z_detection = deepcopy(Z_stabilizers)
+
+        detection_events = {
+            'X': X_detection,
+            'Z': Z_detection
+        }
+
+        # Store in history
+        self.X_history.append(deepcopy(X_stabilizers))
+        self.Z_history.append(deepcopy(Z_stabilizers))
+        self.detection_history.append(detection_events)
+
+        # Trim history if too long
+        if len(self.X_history) > self.max_history:
+            self.X_history.pop(0)
+            self.Z_history.pop(0)
+            self.detection_history.pop(0)
+
+        return detection_events
+
+    def _compute_xor(self,
+                     current: List[List[int]],
+                     previous: List[List[int]]) -> List[List[int]]:
+        """Compute element-wise XOR of two 2D arrays."""
+        result = []
+        for i, row in enumerate(current):
+            result_row = []
+            for j, val in enumerate(row):
+                prev_val = previous[i][j] if i < len(previous) and j < len(previous[i]) else 0
+                result_row.append(val ^ prev_val)
+            result.append(result_row)
+        return result
+
+    def get_detection_count(self) -> int:
+        """Return total number of detection events in history."""
+        count = 0
+        for events in self.detection_history:
+            for stab_type in ['X', 'Z']:
+                if stab_type in events:
+                    for row in events[stab_type]:
+                        count += sum(row)
+        return count
+
+    def clear(self) -> None:
+        """Clear all history."""
+        self.X_history.clear()
+        self.Z_history.clear()
+        self.detection_history.clear()
 
 
 class SurfaceCodeStabilizer:
     """
     Handle stabilizer measurement logic for a distance-d surface code.
 
-    This class assumes a 2D arrangement of data qubits and interleaved ancillas.
-    The user or higher-level code (e.g. a `SurfaceCodeQEC` implementation) can
-    repeatedly call `measure_all_stabilizers` to obtain syndrome data for decoding.
+    This class implements the stabilizer measurement protocol for surface codes,
+    including proper syndrome history tracking for detection event computation.
+
+    Physics Background:
+    - A distance-d surface code has d² data qubits arranged in a 2D grid
+    - X-type stabilizers are products of X operators on plaquettes (detect Z errors)
+    - Z-type stabilizers are products of Z operators on plaquettes (detect X errors)
+    - Ancilla qubits are used to measure stabilizers non-destructively
+    - Detection events (syndrome changes) are used for decoding, not raw measurements
+
+    Measurement Protocol (per stabilizer):
+    1. Prepare ancilla in appropriate basis (|+⟩ for X-type, |0⟩ for Z-type)
+    2. Entangle ancilla with data qubits via CNOT gates
+    3. Measure ancilla to extract parity information
+    4. Reset ancilla for next cycle
     """
 
     def __init__(self,
                  processor: Any,
                  distance: int,
-                 ancilla_offset: Optional[int] = None):
+                 ancilla_offset: Optional[int] = None,
+                 track_history: bool = True):
         """
         Initialize the stabilizer measurement handler.
 
         Args:
-            processor: A quantum processor object (or simulator) implementing
-                       `apply_gate`, `measure`, etc. (usually inherits from QuantumProcessor).
-            distance:  The code distance d, indicating a d x d data-qubit grid.
-            ancilla_offset: Optional offset index for where ancilla qubits begin.
-                            If None, a default calculation is used.
+            processor: A quantum processor object implementing apply_gate, measure, etc.
+            distance: The code distance d (d x d data qubit grid).
+            ancilla_offset: Index offset for ancilla qubits (default: d²).
+            track_history: Whether to maintain syndrome history for detection events.
         """
         self.processor = processor
         self.distance = distance
         self.ancilla_offset = ancilla_offset
+        self.track_history = track_history
+        self._cycle_count = 0
 
-        # If offset is not provided, assume ancillas follow data qubits in indexing
+        # If offset is not provided, assume ancillas follow data qubits
         if self.ancilla_offset is None:
-            # For a distance-d surface code, we have d*d data qubits.
-            # The next (d*(d-1)*2) might be ancillas, or a simpler approach.
             self.ancilla_offset = distance * distance
 
-        # Precompute total ancillas if desired
+        # Calculate number of ancillas needed
         self.num_ancillas = self._calculate_num_ancillas(distance)
 
+        # Initialize syndrome history tracker
+        self.syndrome_history = SyndromeHistory() if track_history else None
+
         logger.debug(
-            f"SurfaceCodeStabilizer initialized with distance={distance}, "
-            f"ancilla_offset={self.ancilla_offset}, num_ancillas={self.num_ancillas}"
+            f"SurfaceCodeStabilizer initialized: distance={distance}, "
+            f"ancilla_offset={self.ancilla_offset}, num_ancillas={self.num_ancillas}, "
+            f"history_tracking={'enabled' if track_history else 'disabled'}"
         )
 
     def measure_all_stabilizers(self,
@@ -71,44 +208,79 @@ class SurfaceCodeStabilizer:
         """
         Measure all X- and Z-type stabilizers in the surface code.
 
+        This method performs a complete round of stabilizer measurements and
+        computes detection events by comparing with the previous round.
+
         Args:
             cycle_index: Optional label/index for this measurement cycle.
+                        If None, uses internal counter.
 
         Returns:
-            A StabilizerMeasurementResult containing X and Z stabilizer outcomes,
-            optional detection events, and metadata.
+            StabilizerMeasurementResult containing:
+            - Raw X and Z stabilizer outcomes
+            - Detection events (XOR with previous cycle)
+            - Measurement fidelity estimate
+            - Cycle metadata
+
+        Physics Note:
+            The decoder should use detection_events, not raw stabilizer values.
+            Detection events indicate where errors occurred between rounds.
         """
         try:
+            # Use internal counter if cycle_index not provided
+            if cycle_index is None:
+                cycle_index = self._cycle_count
+            self._cycle_count += 1
+
             # Prepare lists to store measurement outcomes
             x_stabilizers = [[0] * (self.distance - 1) for _ in range(self.distance - 1)]
             z_stabilizers = [[0] * (self.distance - 1) for _ in range(self.distance - 1)]
 
-            # Measure X-type stabilizers
+            # Measure X-type stabilizers (detect Z errors)
             for i in range(self.distance - 1):
                 for j in range(self.distance - 1):
                     x_stabilizers[i][j] = self._measure_x_stabilizer(i, j)
 
-            # Measure Z-type stabilizers
+            # Measure Z-type stabilizers (detect X errors)
             for i in range(self.distance - 1):
                 for j in range(self.distance - 1):
                     z_stabilizers[i][j] = self._measure_z_stabilizer(i, j)
 
-            # Construct and return the result object
+            # Compute detection events using syndrome history
+            detection_events = None
+            if self.track_history and self.syndrome_history is not None:
+                detection_events = self.syndrome_history.add_measurement(
+                    x_stabilizers, z_stabilizers
+                )
+
+            # Construct metadata
             metadata = {
                 "cycle_index": cycle_index,
                 "distance": self.distance,
-                "timestamp": self._get_timestamp()
+                "timestamp": self._get_timestamp(),
+                "total_X_detections": sum(sum(row) for row in (detection_events.get('X', []) if detection_events else x_stabilizers)),
+                "total_Z_detections": sum(sum(row) for row in (detection_events.get('Z', []) if detection_events else z_stabilizers)),
+                "history_length": len(self.syndrome_history.X_history) if self.syndrome_history else 0
             }
+
             return StabilizerMeasurementResult(
                 X_stabilizers=x_stabilizers,
                 Z_stabilizers=z_stabilizers,
-                detection_events=None,
-                measurement_fidelity=1.0,  # Or a calculated fidelity
+                detection_events=detection_events,
+                measurement_fidelity=1.0,  # Could be calculated from error model
+                cycle_index=cycle_index,
                 metadata=metadata
             )
         except Exception as e:
             logger.error(f"Error measuring all stabilizers at cycle {cycle_index}: {e}")
             raise
+
+    def reset_history(self) -> None:
+        """Reset syndrome history for a new experiment."""
+        if self.syndrome_history:
+            self.syndrome_history.clear()
+        self._cycle_count = 0
+        logger.debug("Syndrome history reset")
 
     def _measure_x_stabilizer(self, row: int, col: int) -> int:
         """

@@ -1,17 +1,16 @@
 # src/quantum_hpc/devices/__init__.py
 
 """
-Package for device-specific QEC codes (surface code, bacon_shor, etc.)
-and specialized hardware-like models.
+Devices Package
+
+QEC code implementations and device-specific models:
+- surface_code: Surface code error correction
+
+Version: 3.0.0
 """
 
-# Potential re-exports for each code subpackage:
-# from .surface_code.decoder import SurfaceCodeDecoder
-# from .surface_code.stabilizer import StabilizerMeasurement
-# from .bacon_shor.bacon_shor import BaconShorQEC
+from . import surface_code
 
 __all__ = [
-    # 'SurfaceCodeDecoder',
-    # 'StabilizerMeasurement',
-    # 'BaconShorQEC'
+    "surface_code",
 ]

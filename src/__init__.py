@@ -1,11 +1,26 @@
 # src/__init__.py
 
 """
-Top-level package initialization for the quantum simulator backend.
+Quantum Simulator Backend - Source Package
+
+A production-ready quantum computing simulation platform featuring:
+- Quantum circuit simulation with QuTiP
+- HPC job coordination for distributed simulations
+- IonQ-style benchmarking (DRB, application benchmarks)
+- Memristor gate acceleration with power metrics
+- Surface code error correction
+
+Version: 3.0.0
 """
 
-# You can optionally define a version or import selected symbols here.
-__version__ = "0.1.0"
+__version__ = "3.0.0"
+__author__ = "polyym"
 
-# Usually, an empty file is enough to mark this as a package.
-# If you want a truly empty file, remove these lines.
+# Note: Submodules are imported lazily to avoid circular import issues.
+# Import them explicitly when needed, e.g.:
+#   from src.routers import quantum_system_router
+#   from src.services import get_hpc_coordinator
+
+__all__ = [
+    "__version__",
+]

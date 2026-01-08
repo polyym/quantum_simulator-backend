@@ -1,20 +1,45 @@
 # src/ionq_benchmarking/__init__.py
 
 """
-IonQ-like benchmarking modules, including DRB, application benchmarks,
-error mitigation, and timing analysis.
+IonQ Benchmarking Package
+
+IonQ-style benchmarking and error mitigation:
+- Direct Randomized Benchmarking (DRB)
+- Application benchmarks (Hamiltonian simulation, QFT)
+- Error mitigation with circuit variants
+- Timing analysis
+
+Version: 3.0.0
 """
 
-# from .core import IonQDevice, BenchmarkMetrics, ApplicationBenchmarks
-# from .error_mitigation import ErrorMitigation, CircuitOptimizer
-# from .timing import TimingAnalyzer, ApplicationTimingTracker
+from .core import (
+    IonQDevice,
+    BenchmarkMetrics,
+    ApplicationBenchmarks,
+    BenchmarkType,
+    GateMetrics,
+)
+from .error_mitigation import ErrorMitigation, CircuitOptimizer
+from .timing import (
+    TimingAnalyzer,
+    ApplicationTimingTracker,
+    GateTiming,
+    CircuitTiming,
+)
 
 __all__ = [
-    # 'IonQDevice',
-    # 'BenchmarkMetrics',
-    # 'ApplicationBenchmarks',
-    # 'ErrorMitigation',
-    # 'CircuitOptimizer',
-    # 'TimingAnalyzer',
-    # 'ApplicationTimingTracker'
+    # Core
+    "IonQDevice",
+    "BenchmarkMetrics",
+    "ApplicationBenchmarks",
+    "BenchmarkType",
+    "GateMetrics",
+    # Error Mitigation
+    "ErrorMitigation",
+    "CircuitOptimizer",
+    # Timing
+    "TimingAnalyzer",
+    "ApplicationTimingTracker",
+    "GateTiming",
+    "CircuitTiming",
 ]

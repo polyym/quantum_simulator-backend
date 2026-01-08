@@ -8,7 +8,7 @@ Google's surface code paper and IonQ's benchmarking methodologies.
 
 from typing import Dict, List, Optional, Tuple, Any, Callable
 import numpy as np
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 import logging
 from datetime import datetime
@@ -52,14 +52,16 @@ class BenchmarkResult:
 
 class BenchmarkManager:
     """Manage and execute quantum benchmarks"""
-    
-    def __init__(self, 
+
+    def __init__(self,
                  metrics_collector: Optional[MetricsCollector] = None,
-                 error_analyzer: Optional[ErrorAnalyzer] = None):
+                 error_analyzer: Optional[ErrorAnalyzer] = None,
+                 code_distance: int = 3):
         self.metrics_collector = metrics_collector or MetricsCollector()
         self.error_analyzer = error_analyzer or ErrorAnalyzer()
         self.benchmark_history: Dict[BenchmarkType, List[BenchmarkResult]] = defaultdict(list)
         self.active_benchmarks: Dict[str, BenchmarkConfig] = {}
+        self.code_distance = code_distance  # Surface code distance for logical error checking
 
     async def run_benchmark(self, 
                           config: BenchmarkConfig,
@@ -737,3 +739,170 @@ class BenchmarkManager:
         except Exception as e:
             logger.error(f"Error measuring in Z basis: {str(e)}")
             raise
+
+    def _count_logical_x_errors(self, error_chains: List[List[Tuple[int, int]]]) -> int:
+        """
+        Count the number of logical X errors from error chains
+
+        Args:
+            error_chains: List of error chains identified from detection events
+
+        Returns:
+            Count of logical X errors
+        """
+        try:
+            count = 0
+            for chain in error_chains:
+                if self._is_logical_x_error(chain):
+                    count += 1
+            return count
+        except Exception as e:
+            logger.error(f"Error counting logical X errors: {str(e)}")
+            return 0
+
+    def _count_logical_z_errors(self, error_chains: List[List[Tuple[int, int]]]) -> int:
+        """
+        Count the number of logical Z errors from error chains
+
+        Args:
+            error_chains: List of error chains identified from detection events
+
+        Returns:
+            Count of logical Z errors
+        """
+        try:
+            count = 0
+            for chain in error_chains:
+                if self._is_logical_z_error(chain):
+                    count += 1
+            return count
+        except Exception as e:
+            logger.error(f"Error counting logical Z errors: {str(e)}")
+            return 0
+
+    async def _run_circuit(self, circuit: Any, config: BenchmarkConfig) -> Dict[str, Any]:
+        """
+        Execute a single circuit and return results
+
+        Args:
+            circuit: Circuit to execute
+            config: Benchmark configuration
+
+        Returns:
+            Dictionary containing circuit execution results
+        """
+        try:
+            # Simulate circuit execution with configurable noise
+            # This is a placeholder that simulates realistic behavior
+            base_success_rate = 0.99 - (config.num_qubits * 0.001) - (config.circuit_depth * 0.0005)
+            noise = np.random.normal(0, 0.01)
+            success_rate = max(0.0, min(1.0, base_success_rate + noise))
+
+            fidelity = success_rate ** (config.circuit_depth / 10)
+
+            return {
+                "success_rate": success_rate,
+                "fidelity": fidelity,
+                "shots": config.num_shots,
+                "execution_time": np.random.uniform(0.001, 0.01) * config.circuit_depth
+            }
+        except Exception as e:
+            logger.error(f"Error running circuit: {str(e)}")
+            raise
+
+    def _analyze_detection_events(self,
+                                  previous: Optional[List[bool]],
+                                  current: Dict[str, Any]) -> List[bool]:
+        """
+        Analyze detection events by comparing current measurements with previous cycle
+
+        Args:
+            previous: Previous cycle's detection events (None for first cycle)
+            current: Current cycle's measurement results
+
+        Returns:
+            List of boolean detection events
+        """
+        try:
+            x_measurements = np.array(current["X_measurements"]).flatten()
+            z_measurements = np.array(current["Z_measurements"]).flatten()
+
+            if previous is None:
+                # First cycle: any non-zero measurement is a detection event
+                detection_events = []
+                for x, z in zip(x_measurements, z_measurements):
+                    detection_events.append(bool(x) or bool(z))
+                return detection_events
+            else:
+                # Compare with previous cycle to detect changes
+                detection_events = []
+                prev_array = np.array(previous)
+                current_combined = np.concatenate([x_measurements, z_measurements])
+
+                for i, (prev, curr) in enumerate(zip(prev_array, current_combined)):
+                    # Detection event occurs when measurement changes
+                    detection_events.append(bool(prev) != bool(curr))
+
+                # Ensure we return the expected number of events
+                expected_length = len(x_measurements) + len(z_measurements)
+                while len(detection_events) < expected_length:
+                    detection_events.append(False)
+
+                return detection_events[:expected_length]
+
+        except Exception as e:
+            logger.error(f"Error analyzing detection events: {str(e)}")
+            return []
+
+    def _update_metrics(self, config: BenchmarkConfig, result: 'BenchmarkResult') -> None:
+        """
+        Update metrics collector with benchmark results
+
+        Args:
+            config: Benchmark configuration
+            result: Benchmark result to record
+        """
+        try:
+            # Record gate fidelity if available
+            if result.fidelity is not None:
+                self.metrics_collector.record_metric(
+                    MetricType.GATE_FIDELITY,
+                    result.fidelity,
+                    metadata={
+                        "benchmark_type": config.type.value,
+                        "num_qubits": config.num_qubits,
+                        "circuit_depth": config.circuit_depth
+                    }
+                )
+
+            # Record error rate
+            if config.type == BenchmarkType.SURFACE_CODE:
+                self.metrics_collector.record_metric(
+                    MetricType.LOGICAL_ERROR_RATE,
+                    result.error_rate,
+                    metadata={"benchmark_type": config.type.value}
+                )
+            else:
+                self.metrics_collector.record_metric(
+                    MetricType.PHYSICAL_ERROR_RATE,
+                    result.error_rate,
+                    metadata={"benchmark_type": config.type.value}
+                )
+
+            # Record execution time
+            self.metrics_collector.record_metric(
+                MetricType.EXECUTION_TIME,
+                result.execution_time,
+                metadata={"benchmark_type": config.type.value},
+                units="seconds"
+            )
+
+            # Use error analyzer to record error
+            self.error_analyzer.record_error(
+                error_rate=result.error_rate,
+                error_type=ErrorType.PHYSICAL if config.type != BenchmarkType.SURFACE_CODE else ErrorType.LOGICAL,
+                metadata={"benchmark_type": config.type.value}
+            )
+
+        except Exception as e:
+            logger.error(f"Error updating metrics: {str(e)}")

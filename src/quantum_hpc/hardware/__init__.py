@@ -1,16 +1,30 @@
 # src/quantum_hpc/hardware/__init__.py
 
 """
-Hardware-related classes for quantum HPC, including topology,
-noise models, and calibration.
+Hardware Package
+
+Hardware modeling and configuration:
+- topology: Qubit connectivity and layout
+- noise_model: Quantum noise channels
+- calibration: Hardware calibration management
+
+Version: 3.0.0
 """
 
-# from .topology import QuantumTopology
-# from .noise_model import NoiseModel
-# from .calibration import CalibrationManager
+from .topology import QuantumTopology, QubitPosition, ConnectivityLink
+from .noise_model import NoiseModel, NoiseModelConfig, NoiseChannelConfig
+from .calibration import CalibrationManager, CalibrationResult
 
 __all__ = [
-    # 'QuantumTopology',
-    # 'NoiseModel',
-    # 'CalibrationManager'
+    # Topology
+    "QuantumTopology",
+    "QubitPosition",
+    "ConnectivityLink",
+    # Noise Model
+    "NoiseModel",
+    "NoiseModelConfig",
+    "NoiseChannelConfig",
+    # Calibration
+    "CalibrationManager",
+    "CalibrationResult",
 ]

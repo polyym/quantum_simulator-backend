@@ -1,7 +1,7 @@
 # src/quantum_hpc/virtualization/simulation.py
 
 import logging
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any, Union, Tuple
 
 import numpy as np
 from dataclasses import dataclass, field

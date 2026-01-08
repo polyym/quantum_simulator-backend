@@ -1,14 +1,23 @@
 # src/quantum_hpc/virtualization/__init__.py
 
 """
-Virtualization layer for simulating or emulating quantum hardware,
-including simulation engines and hardware emulators.
+Virtualization Package
+
+Quantum hardware simulation and emulation:
+- simulation: State vector simulation engine
+- emulation: Hardware emulation layer
+
+Version: 3.0.0
 """
 
-# from .simulation import QuantumSimulationEngine
-# from .emulation import QuantumEmulator
+from .simulation import QuantumSimulationEngine, SimulationConfig
+from .emulation import QuantumEmulator, EmulationConfig
 
 __all__ = [
-    # 'QuantumSimulationEngine',
-    # 'QuantumEmulator'
+    # Simulation
+    "QuantumSimulationEngine",
+    "SimulationConfig",
+    # Emulation
+    "QuantumEmulator",
+    "EmulationConfig",
 ]

@@ -1,9 +1,57 @@
 # src/memristor_gates/enhanced_gates.py
 
 """
-Implementation of memristor-based quantum gates inspired by the research paper.
-Provides classes to model power metrics, parallel execution, and specialized crossbar
-configurations for advanced gates like Phase, T, Swap, CZ, etc.
+Memristor-Based Quantum Gate Acceleration Module
+
+==============================================================================
+                          ⚠️  EXPERIMENTAL / SPECULATIVE  ⚠️
+==============================================================================
+
+This module implements a THEORETICAL model of memristor-based quantum gate
+acceleration. It is intended for research exploration and educational purposes.
+
+IMPORTANT DISCLAIMERS:
+
+1. SPECULATIVE PHYSICS: There is currently NO experimentally validated mechanism
+   for memristors to directly implement quantum gate operations while preserving
+   quantum coherence. This module represents a conceptual exploration, not
+   established physics.
+
+2. NO PEER-REVIEWED BASIS: While memristors are real devices used in neuromorphic
+   computing and analog memory, their application to quantum computing remains
+   speculative. No peer-reviewed papers demonstrate the quantum-memristor coupling
+   modeled here.
+
+3. POWER ESTIMATES ARE THEORETICAL: The power consumption values (picowatts per
+   gate) are optimistic projections, not measured data. Real memristor devices
+   typically consume microwatts to milliwatts per operation.
+
+4. CROSSBAR ARCHITECTURE: The 4x8 crossbar configuration is a software abstraction.
+   How physical crossbar dimensions map to quantum Hilbert space operations is
+   not established.
+
+WHAT THIS MODULE ACTUALLY DOES:
+- Provides a software simulation framework for exploring memristor concepts
+- Models gate matrices using standard quantum gate definitions
+- Tracks hypothetical power metrics for comparative analysis
+- Enables parallel operation scheduling (software-level parallelism)
+
+RECOMMENDED USE CASES:
+- Educational exploration of hybrid classical-quantum computing concepts
+- Architectural studies comparing different accelerator approaches
+- Software prototyping before hardware development
+- Research into novel computing paradigms
+
+NOT RECOMMENDED FOR:
+- Claims of quantum advantage or speedup
+- Benchmarking against real quantum hardware
+- Production quantum computing applications
+- Scientific publications without additional validation
+
+For actual quantum simulation, use the validated QuantumSimulationEngine in
+quantum_system_router.py, which is based on QuTiP and established physics.
+
+==============================================================================
 """
 
 from typing import List, Dict, Optional, Tuple, Set, Any
@@ -77,6 +125,23 @@ class ParallelExecutionUnit:
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
         # Track sets of qubits currently in use to avoid collisions
         self.active_operations: List[Set[int]] = []
+        self._shutdown = False
+
+    def shutdown(self, wait: bool = True) -> None:
+        """
+        Shutdown the executor, releasing all thread resources.
+
+        Args:
+            wait: If True, wait for pending tasks to complete before returning.
+        """
+        if not self._shutdown:
+            self._shutdown = True
+            self.executor.shutdown(wait=wait)
+            logger.debug("ParallelExecutionUnit executor shutdown complete")
+
+    def __del__(self):
+        """Ensure executor is shut down on garbage collection."""
+        self.shutdown(wait=False)
 
     def execute_parallel(self, operations: List[Dict[str, Any]]) -> List[Tuple[np.ndarray, float]]:
         """
@@ -329,6 +394,16 @@ class ParallelQuantumMemristorAccelerator:
         }
 
         self.parallel_executor = ParallelExecutionUnit(max_workers=max_parallel_ops)
+
+    def shutdown(self) -> None:
+        """Shutdown the accelerator and release all resources."""
+        if self.parallel_executor:
+            self.parallel_executor.shutdown(wait=True)
+            logger.debug("ParallelQuantumMemristorAccelerator shutdown complete")
+
+    def __del__(self):
+        """Ensure resources are released on garbage collection."""
+        self.shutdown()
 
     async def execute_quantum_circuit(self, circuit: List[Dict[str, Any]]) -> Tuple[Optional[np.ndarray], Dict[str, float]]:
         """

@@ -3,7 +3,56 @@
 <head>
   <meta charset="UTF-8" />
   <title>Quantum HPC API Test Form</title>
+
+  <!--
+  ╔══════════════════════════════════════════════════════════════════════════════╗
+  ║                     QUANTUM SIMULATOR BACKEND - API TEST FORM                 ║
+  ╠══════════════════════════════════════════════════════════════════════════════╣
+  ║                                                                              ║
+  ║  This HTML file serves as both a functional testing interface and a          ║
+  ║  reference document for the Quantum Simulator Backend API.                   ║
+  ║                                                                              ║
+  ║  BACKEND OVERVIEW:                                                           ║
+  ║  ─────────────────                                                           ║
+  ║  • Framework: FastAPI (Python)                                               ║
+  ║  • Quantum Engine: QuTiP + qutip-qip                                         ║
+  ║  • API Version: 3.0.0                                                        ║
+  ║  • Default Port: 8000                                                        ║
+  ║                                                                              ║
+  ║  API MODULES:                                                                ║
+  ║  ────────────                                                                ║
+  ║  1. /qsystem   - Quantum circuit simulation (create, gates, measure)         ║
+  ║  2. /hpc       - HPC job coordination (submit, status, cancel)               ║
+  ║  3. /ionq      - IonQ-style benchmarking (DRB, applications)                 ║
+  ║  4. /memristor - Memristor gate acceleration                                 ║
+  ║  5. /surface_code - Surface code error correction                            ║
+  ║                                                                              ║
+  ║  FRONTEND DESIGN CONSIDERATIONS:                                             ║
+  ║  ────────────────────────────────                                            ║
+  ║  • Real-time job status polling for HPC tasks                                ║
+  ║  • Visual circuit builder for quantum operations                             ║
+  ║  • Interactive Bloch sphere / state vector visualization                     ║
+  ║  • Dashboard for resource monitoring                                         ║
+  ║  • Dark mode support recommended for scientific applications                 ║
+  ║                                                                              ║
+  ╚══════════════════════════════════════════════════════════════════════════════╝
+  -->
+
   <style>
+    /*
+     * STYLING NOTES FOR FRONTEND DEVELOPERS:
+     * ──────────────────────────────────────
+     * This is minimal styling for testing purposes. A production frontend should:
+     *
+     * 1. Use a component library (React, Vue, Svelte) for consistency
+     * 2. Implement a design system with:
+     *    - Primary colors for quantum states (|0⟩ = blue, |1⟩ = orange recommended)
+     *    - Secondary colors for module differentiation
+     *    - Consistent spacing using 8px grid
+     * 3. Add loading states, error boundaries, and toast notifications
+     * 4. Consider accessibility (WCAG 2.1 AA compliance)
+     * 5. Mobile responsiveness for tablet monitoring
+     */
     body {
       font-family: Arial, sans-serif;
       margin: 20px;
@@ -49,15 +98,114 @@
 
 <h1>Quantum HPC API Test Form</h1>
 <p>
-  This page provides HTML forms to test both <strong>local</strong> and 
-  <strong>HPC-distributed</strong> quantum endpoints. Adjust the <strong>BASE_URL</strong> 
+  This page provides HTML forms to test both <strong>local</strong> and
+  <strong>HPC-distributed</strong> quantum endpoints. Adjust the <strong>BASE_URL</strong>
   in the JavaScript if your backend runs at a different host or port.
 </p>
+
+<!--
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                              HEALTH CHECK SECTION                             ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  ENDPOINT: GET /health                                                       ║
+║                                                                              ║
+║  PURPOSE:                                                                    ║
+║  Quick connectivity check to verify the API is running.                      ║
+║                                                                              ║
+║  RESPONSE FORMAT:                                                            ║
+║  {                                                                           ║
+║    "status": "OK",           // Always "OK" if server is running             ║
+║    "version": "3.0.0",       // API version string                           ║
+║    "services": {             // Service health status                        ║
+║      "hpc_coordinator": "healthy",                                           ║
+║      "quantum_system_manager": "healthy"                                     ║
+║    },                                                                        ║
+║    "metrics": {              // Current system metrics                       ║
+║      "active_quantum_systems": 0,                                            ║
+║      "active_hpc_jobs": 0                                                    ║
+║    }                                                                         ║
+║  }                                                                           ║
+║                                                                              ║
+║  FRONTEND IDEAS:                                                             ║
+║  • Show connection status indicator in header/navbar                         ║
+║  • Implement auto-reconnect with exponential backoff                         ║
+║  • Display version mismatch warnings                                         ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+-->
+<div class="section" style="background: #e8f5e9;">
+  <h2>API Health Check</h2>
+  <p><strong>Health Check</strong> (GET /health)</p>
+  <button onclick="checkHealth()">Check API Health</button>
+  <span id="healthStatus" style="margin-left: 10px;"></span>
+</div>
+
 <hr />
 
-<!-- ==================== Quantum System: LOCAL ==================== -->
+<!--
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                         QUANTUM SYSTEM - LOCAL SIMULATION                     ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  This section handles local quantum circuit simulation using QuTiP.          ║
+║  Circuits are stored in-memory on the server (not persisted).                ║
+║                                                                              ║
+║  WORKFLOW:                                                                   ║
+║  1. Create a quantum system with N qubits                                    ║
+║  2. Apply gate operations sequentially                                       ║
+║  3. Measure to get probability distribution                                  ║
+║  4. Delete when done (or leave for further operations)                       ║
+║                                                                              ║
+║  SUPPORTED GATES:                                                            ║
+║  ────────────────                                                            ║
+║  Single-qubit: X, Y, Z, H, S, T, RX, RY, RZ, PHASE (P)                       ║
+║  Two-qubit: CNOT (CX), CZ, SWAP, CRZ                                         ║
+║                                                                              ║
+║  FRONTEND IDEAS:                                                             ║
+║  • Visual circuit builder with drag-and-drop gates                           ║
+║  • Real-time state vector display (bar chart of amplitudes)                  ║
+║  • Bloch sphere visualization for single-qubit states                        ║
+║  • Circuit diagram renderer (similar to Qiskit/Cirq visualizations)          ║
+║  • Undo/redo functionality for gate operations                               ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+-->
 <div class="section">
   <h2>Quantum System (Local)</h2>
+
+  <!--
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │ ENDPOINT: POST /qsystem/create_system                                      │
+  ├────────────────────────────────────────────────────────────────────────────┤
+  │                                                                            │
+  │ REQUEST BODY:                                                              │
+  │ {                                                                          │
+  │   "system_id": "string",      // Unique identifier for this quantum system│
+  │   "num_qubits": integer,      // Number of qubits (1-20 practical, 25 max) │
+  │   "description": "string"     // Optional human-readable description       │
+  │ }                                                                          │
+  │                                                                            │
+  │ RESPONSE (201 Created):                                                    │
+  │ {                                                                          │
+  │   "system_id": "string",                                                   │
+  │   "message": "Quantum system 'X' created with N qubits."                   │
+  │ }                                                                          │
+  │                                                                            │
+  │ ERRORS:                                                                    │
+  │ • 400: System ID already exists, invalid ID format, or exceeds max qubits  │
+  │ • 503: Maximum number of quantum systems reached                           │
+  │ • 500: Failed to create (usually memory issues with large qubit counts)    │
+  │                                                                            │
+  │ NOTES:                                                                     │
+  │ • Initial state is always |00...0⟩ (all qubits in ground state)           │
+  │ • Max qubits: 25 (practical limit: 20 due to O(2^n) memory scaling)        │
+  │ • Systems auto-expire after 24h (QSIM_QUANTUM_SYSTEM_TTL_HOURS)            │
+  │ • Max concurrent systems: 100 (QSIM_QUANTUM_MAX_SYSTEMS)                   │
+  │ • System IDs: alphanumeric, underscores, hyphens only (max 100 chars)      │
+  │                                                                            │
+  └────────────────────────────────────────────────────────────────────────────┘
+  -->
   <p><strong>Create System</strong> (POST /qsystem/create_system)</p>
   <label>System ID:</label>
   <input id="qs_sys_id" type="text" value="sys1" /><br/>
@@ -69,6 +217,47 @@
 
   <hr/>
 
+  <!--
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │ ENDPOINT: POST /qsystem/apply_operation                                    │
+  ├────────────────────────────────────────────────────────────────────────────┤
+  │                                                                            │
+  │ REQUEST BODY:                                                              │
+  │ {                                                                          │
+  │   "system_id": "string",      // Target quantum system                     │
+  │   "operation": "string",      // Gate name (case-insensitive)              │
+  │   "qubits": [int, ...],       // Target qubit indices (0-indexed)          │
+  │   "params": {                 // Optional parameters for parametric gates  │
+  │     "angle": float            // Rotation angle in radians (for RX/RY/RZ)  │
+  │   }                                                                        │
+  │ }                                                                          │
+  │                                                                            │
+  │ GATE REFERENCE:                                                            │
+  │ ───────────────                                                            │
+  │ Single-qubit (qubits: [target]):                                           │
+  │   • X, Y, Z    - Pauli gates                                               │
+  │   • H          - Hadamard (creates superposition)                          │
+  │   • S, T       - Phase gates (π/2 and π/4)                                 │
+  │   • RX, RY, RZ - Rotation gates (require "angle" param)                    │
+  │   • PHASE (P)  - General phase gate (requires "angle" param)               │
+  │                                                                            │
+  │ Two-qubit (qubits: [control, target]):                                     │
+  │   • CNOT (CX)  - Controlled-NOT                                            │
+  │   • CZ         - Controlled-Z                                              │
+  │   • SWAP       - Swap qubit states                                         │
+  │   • CRZ        - Controlled-RZ (requires "angle" param)                    │
+  │                                                                            │
+  │ RESPONSE:                                                                  │
+  │ {                                                                          │
+  │   "message": "Operation 'X' applied on system 'sys1' for qubits [0]."      │
+  │ }                                                                          │
+  │                                                                            │
+  │ ERRORS:                                                                    │
+  │ • 404: System not found                                                    │
+  │ • 400: Invalid qubit index, unknown operation, or bad parameters           │
+  │                                                                            │
+  └────────────────────────────────────────────────────────────────────────────┘
+  -->
   <p><strong>Apply Operation</strong> (POST /qsystem/apply_operation)</p>
   <label>System ID:</label>
   <input id="qs_op_sysid" type="text" value="sys1" /><br/>
@@ -82,17 +271,132 @@
 
   <hr/>
 
+  <!--
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │ ENDPOINT: POST /qsystem/measure                                            │
+  ├────────────────────────────────────────────────────────────────────────────┤
+  │                                                                            │
+  │ REQUEST BODY:                                                              │
+  │ {                                                                          │
+  │   "system_id": "string",      // Target quantum system                     │
+  │   "qubits": [int, ...]        // Qubits to measure (0-indexed)             │
+  │ }                                                                          │
+  │                                                                            │
+  │ RESPONSE:                                                                  │
+  │ {                                                                          │
+  │   "outcomes": {               // Probability distribution                  │
+  │     "00": 0.5,                // Bitstring -> probability (0.0 to 1.0)     │
+  │     "11": 0.5                 // Only non-zero probabilities are returned  │
+  │   }                                                                        │
+  │ }                                                                          │
+  │                                                                            │
+  │ NOTES:                                                                     │
+  │ • This returns probabilities, NOT a collapsed measurement                  │
+  │ • The quantum state is NOT modified by this operation                      │
+  │ • Bitstring order: leftmost bit = first qubit in list                      │
+  │ • Probabilities sum to 1.0 (within floating point precision)               │
+  │                                                                            │
+  │ FRONTEND IDEAS:                                                            │
+  │ • Bar chart showing probability distribution                               │
+  │ • Color-coded outcomes (green = high probability, red = low)               │
+  │ • Option to "sample" N times for histogram visualization                   │
+  │                                                                            │
+  └────────────────────────────────────────────────────────────────────────────┘
+  -->
   <p><strong>Measure</strong> (POST /qsystem/measure)</p>
   <label>System ID:</label>
   <input id="qs_measure_sysid" type="text" value="sys1" /><br/>
   <label>Qubits (comma):</label>
   <input id="qs_measure_qubits" type="text" value="0,1" /><br/>
   <button onclick="measureQs()">Measure Qubits</button>
+
+  <hr/>
+
+  <!--
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │ ENDPOINT: DELETE /qsystem/delete_system?system_id=...                      │
+  ├────────────────────────────────────────────────────────────────────────────┤
+  │                                                                            │
+  │ QUERY PARAMETERS:                                                          │
+  │   system_id (required): The ID of the system to delete                     │
+  │                                                                            │
+  │ RESPONSE:                                                                  │
+  │ {                                                                          │
+  │   "message": "Quantum system 'sys1' deleted."                              │
+  │ }                                                                          │
+  │                                                                            │
+  │ ERRORS:                                                                    │
+  │ • 404: System not found                                                    │
+  │                                                                            │
+  │ NOTES:                                                                     │
+  │ • This frees server memory                                                 │
+  │ • Deleted systems cannot be recovered                                      │
+  │                                                                            │
+  └────────────────────────────────────────────────────────────────────────────┘
+  -->
+  <p><strong>Delete System</strong> (DELETE /qsystem/delete_system?system_id=...)</p>
+  <label>System ID:</label>
+  <input id="qs_delete_sysid" type="text" value="sys1" /><br/>
+  <button onclick="deleteQuantumSystem()">Delete System</button>
 </div>
 
-<!-- ==================== Quantum System: HPC Distributed ==================== -->
+<!--
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    QUANTUM SYSTEM - HPC DISTRIBUTED SIMULATION                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  For large-scale simulations that exceed local compute capabilities.         ║
+║  Jobs are queued and executed asynchronously with resource allocation.       ║
+║                                                                              ║
+║  USE CASES:                                                                  ║
+║  • Many-qubit simulations (15+ qubits)                                       ║
+║  • Repeated circuit execution for statistics                                 ║
+║  • QEC cycle simulations with error injection                                ║
+║                                                                              ║
+║  FRONTEND IDEAS:                                                             ║
+║  • Job queue visualization with progress bars                                ║
+║  • Resource allocation pie chart                                             ║
+║  • Estimated completion time display                                         ║
+║  • Email/webhook notifications on completion                                 ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+-->
 <div class="section">
   <h2>Quantum System (HPC Distributed)</h2>
+
+  <!--
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │ ENDPOINT: POST /qsystem/submit_distributed_simulation                      │
+  ├────────────────────────────────────────────────────────────────────────────┤
+  │                                                                            │
+  │ REQUEST BODY:                                                              │
+  │ {                                                                          │
+  │   "job_id": "string",         // Unique job identifier                     │
+  │   "num_qubits": integer,      // Number of qubits to simulate              │
+  │   "code_distance": integer,   // QEC code distance (default: 3)            │
+  │   "num_cycles": integer,      // Number of QEC cycles (default: 1)         │
+  │   "cpu_cores": integer,       // Requested CPU cores (default: 1)          │
+  │   "gpu_cards": integer,       // Requested GPUs (default: 0)               │
+  │   "memory_gb": float,         // Requested memory in GB (default: 1.0)     │
+  │   "parameters": {}            // Additional simulation parameters          │
+  │ }                                                                          │
+  │                                                                            │
+  │ RESPONSE:                                                                  │
+  │ {                                                                          │
+  │   "job_id": "string",                                                      │
+  │   "message": "Distributed simulation submitted. HPC job 'X' is queued..."  │
+  │ }                                                                          │
+  │                                                                            │
+  │ ERRORS:                                                                    │
+  │ • 400: Insufficient HPC resources, or job_id already exists                │
+  │                                                                            │
+  │ WORKFLOW:                                                                  │
+  │ 1. Submit job here                                                         │
+  │ 2. Poll /hpc/job_status?job_id=X for progress                              │
+  │ 3. Retrieve results when status = "COMPLETED"                              │
+  │                                                                            │
+  └────────────────────────────────────────────────────────────────────────────┘
+  -->
   <p><strong>Submit Distributed Simulation</strong> (POST /qsystem/submit_distributed_simulation)</p>
   <label>Job ID:</label>
   <input id="qs_hpc_jobid" type="text" value="dist_sim_1" /><br/>
@@ -113,9 +417,65 @@
   <button onclick="submitDistributedSimulation()">Submit Distributed Simulation</button>
 </div>
 
-<!-- ==================== HPC Section ==================== -->
+<!--
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           HPC JOB MANAGEMENT SECTION                          ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  Central hub for managing all HPC jobs across all modules.                   ║
+║                                                                              ║
+║  JOB STATES:                                                                 ║
+║  ───────────                                                                 ║
+║  • QUEUED     - Job submitted, waiting for resources                         ║
+║  • RUNNING    - Job actively executing                                       ║
+║  • COMPLETED  - Job finished successfully                                    ║
+║  • FAILED     - Job encountered an error                                     ║
+║  • CANCELED   - Job was manually canceled                                    ║
+║                                                                              ║
+║  RESOURCE POOL (Default - configurable via environment variables):           ║
+║  ─────────────────────────────────────────────────────────────────           ║
+║  • Total CPU Cores: 64   (QSIM_HPC_TOTAL_CORES)                              ║
+║  • Total GPU Cards: 4    (QSIM_HPC_TOTAL_GPUS)                               ║
+║  • Total Memory: 128 GB  (QSIM_HPC_TOTAL_MEMORY_GB)                          ║
+║  • All routers share a single resource pool (v3.0.0)                         ║
+║                                                                              ║
+║  FRONTEND IDEAS:                                                             ║
+║  • Real-time job dashboard with status badges                                ║
+║  • Gantt chart for job scheduling visualization                              ║
+║  • Resource utilization gauges                                               ║
+║  • Job history with filtering/sorting                                        ║
+║  • Cancel confirmation modal                                                 ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+-->
 <div class="section">
   <h2>HPC</h2>
+
+  <!--
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │ ENDPOINT: POST /hpc/submit_job                                             │
+  ├────────────────────────────────────────────────────────────────────────────┤
+  │                                                                            │
+  │ REQUEST BODY:                                                              │
+  │ {                                                                          │
+  │   "job_id": "string",         // Unique job identifier                     │
+  │   "qubit_count": integer,     // Number of qubits                          │
+  │   "code_distance": integer,   // QEC code distance                         │
+  │   "num_cycles": integer,      // Number of cycles                          │
+  │   "cpu_cores": integer,       // Requested CPU cores                       │
+  │   "gpu_cards": integer,       // Requested GPUs                            │
+  │   "memory_gb": float          // Requested memory in GB                    │
+  │ }                                                                          │
+  │                                                                            │
+  │ RESPONSE:                                                                  │
+  │ {                                                                          │
+  │   "job_id": "string",                                                      │
+  │   "status": "queued",                                                      │
+  │   "message": "HPC job submitted successfully."                             │
+  │ }                                                                          │
+  │                                                                            │
+  └────────────────────────────────────────────────────────────────────────────┘
+  -->
   <p><strong>Submit Job</strong> (POST /hpc/submit_job)</p>
   <label>Job ID:</label>
   <input id="hpc_job_id" type="text" value="job123" /><br/>
@@ -135,15 +495,182 @@
 
   <hr/>
 
+  <!--
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │ ENDPOINT: GET /hpc/job_status?job_id=...                                   │
+  ├────────────────────────────────────────────────────────────────────────────┤
+  │                                                                            │
+  │ QUERY PARAMETERS:                                                          │
+  │   job_id (required): The job to check                                      │
+  │                                                                            │
+  │ RESPONSE:                                                                  │
+  │ {                                                                          │
+  │   "job_id": "string",                                                      │
+  │   "status": "QUEUED|RUNNING|COMPLETED|FAILED|CANCELED",                    │
+  │   "progress": float,          // 0.0 to 1.0 (if available)                 │
+  │   "result": {...}             // Present only if COMPLETED                 │
+  │ }                                                                          │
+  │                                                                            │
+  │ POLLING RECOMMENDATION:                                                    │
+  │ • Poll every 2-5 seconds for active jobs                                   │
+  │ • Use exponential backoff for long-running jobs                            │
+  │ • Consider WebSocket upgrade for real-time updates                         │
+  │                                                                            │
+  └────────────────────────────────────────────────────────────────────────────┘
+  -->
   <p><strong>Job Status</strong> (GET /hpc/job_status?job_id=...)</p>
   <label>Job ID to Check:</label>
   <input id="hpc_job_id_status" type="text" value="job123" /><br/>
   <button onclick="checkHPCJobStatus()">Get Job Status</button>
+
+  <hr/>
+
+  <!--
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │ ENDPOINT: GET /hpc/list_jobs                                               │
+  ├────────────────────────────────────────────────────────────────────────────┤
+  │                                                                            │
+  │ RESPONSE:                                                                  │
+  │ {                                                                          │
+  │   "jobs": [                                                                │
+  │     {                                                                      │
+  │       "job_id": "string",                                                  │
+  │       "status": "QUEUED|RUNNING|COMPLETED|FAILED|CANCELED",                │
+  │       "qubit_count": integer,                                              │
+  │       "submitted_at": "ISO timestamp"                                      │
+  │     },                                                                     │
+  │     ...                                                                    │
+  │   ]                                                                        │
+  │ }                                                                          │
+  │                                                                            │
+  │ FRONTEND IDEAS:                                                            │
+  │ • Sortable/filterable data table                                           │
+  │ • Status filter tabs (All, Running, Completed, Failed)                     │
+  │ • Bulk actions (cancel multiple, delete completed)                         │
+  │                                                                            │
+  └────────────────────────────────────────────────────────────────────────────┘
+  -->
+  <p><strong>List All Jobs</strong> (GET /hpc/list_jobs)</p>
+  <button onclick="listHPCJobs()">List Jobs</button>
+
+  <hr/>
+
+  <!--
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │ ENDPOINT: DELETE /hpc/cancel_job?job_id=...                                │
+  ├────────────────────────────────────────────────────────────────────────────┤
+  │                                                                            │
+  │ QUERY PARAMETERS:                                                          │
+  │   job_id (required): The job to cancel                                     │
+  │                                                                            │
+  │ RESPONSE:                                                                  │
+  │ {                                                                          │
+  │   "job_id": "string",                                                      │
+  │   "status": "canceled",                                                    │
+  │   "message": "Job canceled successfully."                                  │
+  │ }                                                                          │
+  │                                                                            │
+  │ NOTES:                                                                     │
+  │ • Only QUEUED and RUNNING jobs can be canceled                             │
+  │ • Resources are released immediately upon cancellation                     │
+  │                                                                            │
+  └────────────────────────────────────────────────────────────────────────────┘
+  -->
+  <p><strong>Cancel Job</strong> (DELETE /hpc/cancel_job?job_id=...)</p>
+  <label>Job ID to Cancel:</label>
+  <input id="hpc_job_id_cancel" type="text" value="job123" /><br/>
+  <button onclick="cancelHPCJob()">Cancel Job</button>
+
+  <hr/>
+
+  <!--
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │ ENDPOINT: GET /hpc/resources                                               │
+  ├────────────────────────────────────────────────────────────────────────────┤
+  │                                                                            │
+  │ RESPONSE:                                                                  │
+  │ {                                                                          │
+  │   "total_cores": 64,                                                       │
+  │   "available_cores": 58,                                                   │
+  │   "total_gpus": 4,                                                         │
+  │   "available_gpus": 4,                                                     │
+  │   "total_memory_gb": 128.0,                                                │
+  │   "available_memory_gb": 120.0,                                            │
+  │   "active_allocations": [...]  // List of current allocations              │
+  │ }                                                                          │
+  │                                                                            │
+  │ FRONTEND IDEAS:                                                            │
+  │ • Resource utilization gauges (CPU, GPU, Memory)                           │
+  │ • Pie charts showing allocated vs available                                │
+  │ • Historical usage graphs                                                  │
+  │ • Alerts when resources are low                                            │
+  │                                                                            │
+  └────────────────────────────────────────────────────────────────────────────┘
+  -->
+  <p><strong>Get Resource Usage</strong> (GET /hpc/resources)</p>
+  <button onclick="getHPCResources()">Get Resources</button>
 </div>
 
-<!-- ==================== IonQ Section (Local) ==================== -->
+<!--
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                         IONQ BENCHMARKING - LOCAL                             ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  IonQ-style quantum benchmarking tools for measuring device performance.     ║
+║                                                                              ║
+║  BENCHMARK TYPES:                                                            ║
+║  ────────────────                                                            ║
+║  1. DRB (Direct Randomized Benchmarking)                                     ║
+║     - Uses random Clifford sequences with computed recovery gate             ║
+║     - Returns error per Clifford (EPC) and survival probability              ║
+║                                                                              ║
+║  2. Application Benchmarks                                                   ║
+║     - Uses error-model fidelity: F ≈ (1-ε₁q)^n₁q × (1-ε₂q)^n₂q              ║
+║     - Supports: hamiltonian_simulation, qft, grover, qaoa, phase_estimation  ║
+║                                                                              ║
+║  3. Error Mitigation                                                         ║
+║     - Applies error mitigation techniques to circuits                        ║
+║     - Uses plurality voting across circuit variants                          ║
+║                                                                              ║
+║  FRONTEND IDEAS:                                                             ║
+║  • Benchmark comparison charts across different runs                         ║
+║  • Error rate trend visualization over time                                  ║
+║  • Algorithm selection dropdown with descriptions                            ║
+║  • Export benchmark results as PDF/CSV                                       ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+-->
 <div class="section">
   <h2>IonQ (Local)</h2>
+
+  <!--
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │ ENDPOINT: POST /ionq/drb                                                   │
+  ├────────────────────────────────────────────────────────────────────────────┤
+  │                                                                            │
+  │ REQUEST BODY:                                                              │
+  │ {                                                                          │
+  │   "qubits": [int, ...],       // Qubit indices to benchmark                │
+  │   "depth": integer,           // Circuit depth (more = more accurate)      │
+  │   "p2q": float                // Two-qubit gate probability (0.0 to 1.0)   │
+  │ }                                                                          │
+  │                                                                            │
+  │ RESPONSE:                                                                  │
+  │ {                                                                          │
+  │   "survival_probability": float,    // Probability of returning to |0⟩     │
+  │   "error_per_clifford": float,      // EPC extracted from decay fit        │
+  │   "sequence_fidelity": float,       // Raw sequence fidelity               │
+  │   "num_single_qubit_gates": int,    // Total 1Q gates in sequence          │
+  │   "num_two_qubit_gates": int        // Total 2Q gates in sequence          │
+  │ }                                                                          │
+  │                                                                            │
+  │ PHYSICS NOTES:                                                             │
+  │ • Uses proper Clifford sequences with recovery gate computation            │
+  │ • Survival probability follows P(m) = A * p^m + B exponential decay        │
+  │ • p2q controls ratio of 2-qubit Cliffords in the sequence                  │
+  │                                                                            │
+  └────────────────────────────────────────────────────────────────────────────┘
+  -->
   <p><strong>Direct Randomized Benchmarking (DRB)</strong> (POST /ionq/drb)</p>
   <label>Qubits (comma):</label>
   <input id="ionq_qubits" type="text" value="0,1" /><br/>
@@ -155,17 +682,120 @@
 
   <hr/>
 
+  <!--
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │ ENDPOINT: POST /ionq/application                                           │
+  ├────────────────────────────────────────────────────────────────────────────┤
+  │                                                                            │
+  │ REQUEST BODY:                                                              │
+  │ {                                                                          │
+  │   "name": "string",           // Application name                          │
+  │   "width": integer            // Number of qubits to use                   │
+  │ }                                                                          │
+  │                                                                            │
+  │ SUPPORTED APPLICATIONS:                                                    │
+  │ • "hamiltonian_simulation" - Simulate quantum Hamiltonians                 │
+  │ • "qft" - Quantum Fourier Transform                                        │
+  │ • "grover" - Grover's search algorithm                                     │
+  │ • "qaoa" - Quantum Approximate Optimization                                │
+  │                                                                            │
+  │ RESPONSE:                                                                  │
+  │ {                                                                          │
+  │   "application": "string",                                                 │
+  │   "width": integer,                                                        │
+  │   "circuit_fidelity": float,                                               │
+  │   "estimated_success_probability": float                                   │
+  │ }                                                                          │
+  │                                                                            │
+  └────────────────────────────────────────────────────────────────────────────┘
+  -->
   <p><strong>Application Benchmark</strong> (POST /ionq/application)</p>
   <label>Application Name:</label>
   <input id="ionq_app_name" type="text" value="hamiltonian_simulation" /><br/>
   <label>Width:</label>
   <input id="ionq_app_width" type="number" value="5" /><br/>
   <button onclick="runIonqApplication()">Run Application</button>
+
+  <hr/>
+
+  <!--
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │ ENDPOINT: POST /ionq/error_mitigation                                      │
+  ├────────────────────────────────────────────────────────────────────────────┤
+  │                                                                            │
+  │ REQUEST BODY:                                                              │
+  │ {                                                                          │
+  │   "num_qubits": integer,      // Number of qubits in circuit               │
+  │   "circuit": [                // Array of gate operations                  │
+  │     {"gate": "H", "qubits": [0]},                                          │
+  │     {"gate": "CNOT", "qubits": [0, 1]}                                     │
+  │   ]                                                                        │
+  │ }                                                                          │
+  │                                                                            │
+  │ RESPONSE:                                                                  │
+  │ {                                                                          │
+  │   "mitigated_distribution": {...},  // Error-mitigated results             │
+  │   "raw_distributions": [...],       // Individual variant results          │
+  │   "num_variants": integer                                                  │
+  │ }                                                                          │
+  │                                                                            │
+  │ NOTES:                                                                     │
+  │ • Uses plurality voting across multiple circuit variants                   │
+  │ • Reduces impact of random errors                                          │
+  │                                                                            │
+  └────────────────────────────────────────────────────────────────────────────┘
+  -->
+  <p><strong>Error Mitigation</strong> (POST /ionq/error_mitigation)</p>
+  <label>Num Qubits:</label>
+  <input id="ionq_em_qubits" type="number" value="2" /><br/>
+  <p>Circuit (JSON array of gate operations):</p>
+  <textarea id="ionq_em_circuit" rows="3">[{"gate":"H","qubits":[0]},{"gate":"CNOT","qubits":[0,1]}]</textarea><br/>
+  <button onclick="runIonqErrorMitigation()">Run Error Mitigation</button>
 </div>
 
-<!-- ==================== IonQ HPC Section ==================== -->
+<!--
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                            IONQ BENCHMARKING - HPC                            ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  HPC-enabled IonQ benchmarking for large-scale or repeated benchmarks.       ║
+║  Useful for comprehensive device characterization.                           ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+-->
 <div class="section">
   <h2>IonQ (HPC)</h2>
+
+  <!--
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │ ENDPOINT: POST /ionq/submit_hpc_ionq                                       │
+  ├────────────────────────────────────────────────────────────────────────────┤
+  │                                                                            │
+  │ REQUEST BODY:                                                              │
+  │ {                                                                          │
+  │   "job_id": "string",                                                      │
+  │   "benchmark_type": "drb|app|error_mitigation",                            │
+  │   "qubits": [int, ...],       // For DRB                                   │
+  │   "depth": integer,           // For DRB                                   │
+  │   "p2q": float,               // For DRB                                   │
+  │   "app_name": "string",       // For application benchmark                 │
+  │   "app_width": integer,       // For application benchmark                 │
+  │   "circuit": [...],           // For error mitigation                      │
+  │   "num_qubits": integer,      // For error mitigation                      │
+  │   "cpu_cores": integer,                                                    │
+  │   "gpu_cards": integer,                                                    │
+  │   "memory_gb": float,                                                      │
+  │   "parameters": {}                                                         │
+  │ }                                                                          │
+  │                                                                            │
+  │ RESPONSE:                                                                  │
+  │ {                                                                          │
+  │   "job_id": "string",                                                      │
+  │   "message": "IonQ HPC task submitted..."                                  │
+  │ }                                                                          │
+  │                                                                            │
+  └────────────────────────────────────────────────────────────────────────────┘
+  -->
   <p><strong>Submit HPC IonQ Task</strong> (POST /ionq/submit_hpc_ionq)</p>
   <label>Job ID:</label>
   <input id="ionq_hpc_jobid" type="text" value="ionq_job_1" /><br/>
@@ -198,9 +828,73 @@
   <button onclick="submitHPCIonq()">Submit HPC IonQ Task</button>
 </div>
 
-<!-- ==================== Memristor Section (Local) ==================== -->
-<div class="section">
-  <h2>Memristor (Local)</h2>
+<!--
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                  MEMRISTOR GATE ACCELERATION ⚠️ EXPERIMENTAL                  ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  ⚠️  DISCLAIMER: This module is SPECULATIVE/THEORETICAL.                     ║
+║  There is NO experimentally validated physics for memristor-based quantum    ║
+║  gate operations. Use for educational/exploratory purposes only.             ║
+║  API responses include explicit experimental warnings.                       ║
+║                                                                              ║
+║  Memristor-based quantum gate simulation with power consumption metrics.     ║
+║                                                                              ║
+║  FEATURES:                                                                   ║
+║  ──────────                                                                  ║
+║  • Parallel gate execution (up to 4 concurrent operations)                   ║
+║  • 4×8 crossbar configuration                                                ║
+║  • Power metrics: static power, dynamic power, total energy                  ║
+║                                                                              ║
+║  SUPPORTED GATES:                                                            ║
+║  ────────────────                                                            ║
+║  phase, hadamard, pauli_x, pauli_y, pauli_z, t_gate, s_gate,                ║
+║  swap, cz, sqrt_swap, ccnot (Toffoli)                                        ║
+║                                                                              ║
+║  FRONTEND IDEAS:                                                             ║
+║  • Power consumption visualizations                                          ║
+║  • Crossbar array visualization                                              ║
+║  • Energy efficiency comparisons                                             ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+-->
+<div class="section" style="background: #fff3cd;">
+  <h2>Memristor (Local) ⚠️ Experimental</h2>
+  <p style="color: #856404; font-size: 0.9em;"><strong>Warning:</strong> This module uses THEORETICAL memristor models with NO experimental validation. Power metrics are speculative. Do not use for scientific claims. For validated quantum simulation, use /qsystem endpoints.</p>
+
+  <!--
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │ ENDPOINT: POST /memristor/run_circuit                                      │
+  ├────────────────────────────────────────────────────────────────────────────┤
+  │                                                                            │
+  │ REQUEST BODY:                                                              │
+  │ {                                                                          │
+  │   "circuit_id": "string",                                                  │
+  │   "operations": [                                                          │
+  │     {                                                                      │
+  │       "gate": "string",       // Gate name (see supported gates above)     │
+  │       "qubits": [int, ...],   // Target qubit(s)                           │
+  │       "state_dim": integer    // Optional: state dimension (default: 2)    │
+  │     },                                                                     │
+  │     ...                                                                    │
+  │   ]                                                                        │
+  │ }                                                                          │
+  │                                                                            │
+  │ RESPONSE:                                                                  │
+  │ {                                                                          │
+  │   "circuit_id": "string",                                                  │
+  │   "results": [...],           // Gate execution results                    │
+  │   "power_metrics": {                                                       │
+  │     "static_power_mw": float,                                              │
+  │     "dynamic_power_mw": float,                                             │
+  │     "total_energy_pj": float,                                              │
+  │     "leakage_power_mw": float                                              │
+  │   },                                                                       │
+  │   "experimental_warning": "..."   // Warning about unvalidated physics     │
+  │ }                                                                          │
+  │                                                                            │
+  └────────────────────────────────────────────────────────────────────────────┘
+  -->
   <p><strong>Run Circuit</strong> (POST /memristor/run_circuit)</p>
   <label>Circuit ID:</label>
   <input id="mem_circ_id" type="text" value="mem_circ_1" /><br/>
@@ -211,9 +905,36 @@
   <button onclick="runMemCircuit()">Execute Memristor Circuit</button>
 </div>
 
-<!-- ==================== Memristor HPC Section ==================== -->
+<!--
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                         MEMRISTOR GATE ACCELERATION - HPC                     ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  HPC-enabled memristor simulation for large circuits.                        ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+-->
 <div class="section">
   <h2>Memristor (HPC)</h2>
+
+  <!--
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │ ENDPOINT: POST /memristor/submit_hpc_memristor                             │
+  ├────────────────────────────────────────────────────────────────────────────┤
+  │                                                                            │
+  │ REQUEST BODY:                                                              │
+  │ {                                                                          │
+  │   "job_id": "string",                                                      │
+  │   "circuit_id": "string",                                                  │
+  │   "operations": [...],        // Same format as local endpoint             │
+  │   "cpu_cores": integer,                                                    │
+  │   "gpu_cards": integer,                                                    │
+  │   "memory_gb": float,                                                      │
+  │   "parameters": {}                                                         │
+  │ }                                                                          │
+  │                                                                            │
+  └────────────────────────────────────────────────────────────────────────────┘
+  -->
   <p><strong>Submit HPC Memristor Task</strong> (POST /memristor/submit_hpc_memristor)</p>
   <label>Job ID:</label>
   <input id="mem_hpc_jobid" type="text" value="mem_job_1" /><br/>
@@ -235,9 +956,62 @@
   <button onclick="submitHPCMemristor()">Submit HPC Memristor Task</button>
 </div>
 
-<!-- ==================== Surface Code Section (Local) ==================== -->
+<!--
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                       SURFACE CODE ERROR CORRECTION                           ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  Surface code quantum error correction implementation.                        ║
+║                                                                              ║
+║  CONCEPTS:                                                                   ║
+║  ──────────                                                                  ║
+║  • Distance: Code distance d means (d-1)/2 errors can be corrected           ║
+║  • Stabilizers: X and Z type parity checks                                   ║
+║  • Syndrome: Pattern of stabilizer violations indicating errors              ║
+║  • Decoder: Algorithm to determine correction from syndrome                  ║
+║                                                                              ║
+║  TYPICAL DISTANCES:                                                          ║
+║  • d=3: Corrects 1 error, 17 physical qubits                                 ║
+║  • d=5: Corrects 2 errors, 49 physical qubits                                ║
+║  • d=7: Corrects 3 errors, 97 physical qubits                                ║
+║                                                                              ║
+║  FRONTEND IDEAS:                                                             ║
+║  • Visual surface code lattice with stabilizer colors                        ║
+║  • Error chain visualization                                                 ║
+║  • Logical error rate plots vs physical error rate                           ║
+║  • Interactive syndrome pattern display                                      ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+-->
 <div class="section">
   <h2>Surface Code (Local)</h2>
+
+  <!--
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │ ENDPOINT: POST /surface_code/measure_stabilizers                           │
+  ├────────────────────────────────────────────────────────────────────────────┤
+  │                                                                            │
+  │ REQUEST BODY:                                                              │
+  │ {                                                                          │
+  │   "distance": integer,        // Code distance (3, 5, 7, ...)              │
+  │   "cycle_index": integer      // QEC cycle number (for tracking)           │
+  │ }                                                                          │
+  │                                                                            │
+  │ RESPONSE:                                                                  │
+  │ {                                                                          │
+  │   "X_measurements": [[int, ...], ...],  // X stabilizer outcomes (0 or 1)  │
+  │   "Z_measurements": [[int, ...], ...],  // Z stabilizer outcomes           │
+  │   "cycle_index": integer,                                                  │
+  │   "metadata": {}                                                           │
+  │ }                                                                          │
+  │                                                                            │
+  │ NOTES:                                                                     │
+  │ • X stabilizers detect Z (bit-flip) errors                                 │
+  │ • Z stabilizers detect X (phase-flip) errors                               │
+  │ • Non-zero measurements indicate detected errors                           │
+  │                                                                            │
+  └────────────────────────────────────────────────────────────────────────────┘
+  -->
   <p><strong>Measure Stabilizers</strong> (POST /surface_code/measure_stabilizers)</p>
   <label>Distance:</label>
   <input id="sc_distance" type="number" value="3" /><br/>
@@ -247,6 +1021,31 @@
 
   <hr/>
 
+  <!--
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │ ENDPOINT: POST /surface_code/decode_syndrome                               │
+  ├────────────────────────────────────────────────────────────────────────────┤
+  │                                                                            │
+  │ REQUEST BODY:                                                              │
+  │ {                                                                          │
+  │   "distance": integer,                                                     │
+  │   "stabilizer_data": {                                                     │
+  │     "X_stabilizers": [[int, ...], ...],                                    │
+  │     "Z_stabilizers": [[int, ...], ...],                                    │
+  │     "metadata": {}                                                         │
+  │   }                                                                        │
+  │ }                                                                          │
+  │                                                                            │
+  │ RESPONSE:                                                                  │
+  │ {                                                                          │
+  │   "x_corrections": [...],     // Suggested X corrections                   │
+  │   "z_corrections": [...],     // Suggested Z corrections                   │
+  │   "logical_error_detected": boolean,                                       │
+  │   "confidence": float                                                      │
+  │ }                                                                          │
+  │                                                                            │
+  └────────────────────────────────────────────────────────────────────────────┘
+  -->
   <p><strong>Decode Syndrome</strong> (POST /surface_code/decode_syndrome)</p>
   <label>Distance:</label>
   <input id="sc_distance_decode" type="number" value="3" /><br/>
@@ -257,9 +1056,51 @@
   <button onclick="decodeSurfaceSyndrome()">Decode Syndrome</button>
 </div>
 
-<!-- ==================== Surface Code HPC Section ==================== -->
+<!--
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    SURFACE CODE ERROR CORRECTION - HPC                        ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  Multi-round QEC simulation for studying error suppression with distance.    ║
+║  Critical for understanding fault-tolerant quantum computing thresholds.     ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+-->
 <div class="section">
   <h2>Surface Code (HPC)</h2>
+
+  <!--
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │ ENDPOINT: POST /surface_code/run_multi_round_qec                           │
+  ├────────────────────────────────────────────────────────────────────────────┤
+  │                                                                            │
+  │ REQUEST BODY:                                                              │
+  │ {                                                                          │
+  │   "job_id": "string",                                                      │
+  │   "distance": integer,        // Code distance                             │
+  │   "rounds": integer,          // Number of QEC rounds to simulate          │
+  │   "cpu_cores": integer,                                                    │
+  │   "gpu_cards": integer,                                                    │
+  │   "memory_gb": float,                                                      │
+  │   "parameters": {}                                                         │
+  │ }                                                                          │
+  │                                                                            │
+  │ RESPONSE:                                                                  │
+  │ {                                                                          │
+  │   "job_id": "string",                                                      │
+  │   "message": "Multi-round QEC job submitted..."                            │
+  │ }                                                                          │
+  │                                                                            │
+  │ RESULT (when completed):                                                   │
+  │ {                                                                          │
+  │   "logical_error_rate": float,                                             │
+  │   "physical_error_rate": float,                                            │
+  │   "rounds_completed": integer,                                             │
+  │   "error_events": [...]                                                    │
+  │ }                                                                          │
+  │                                                                            │
+  └────────────────────────────────────────────────────────────────────────────┘
+  -->
   <p><strong>Run Multi-Round QEC</strong> (POST /surface_code/run_multi_round_qec)</p>
   <label>Job ID:</label>
   <input id="sc_hpc_jobid" type="text" value="sc_qec_job1" /><br/>
@@ -280,19 +1121,136 @@
 </div>
 
 <hr/>
+
+<!--
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                              RESPONSE DISPLAY                                 ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  FRONTEND IDEAS:                                                             ║
+║  • Syntax-highlighted JSON viewer                                            ║
+║  • Collapsible nested objects                                                ║
+║  • Copy-to-clipboard button                                                  ║
+║  • Response time display                                                     ║
+║  • Error responses in red with clear messaging                               ║
+║  • Success responses with green indicator                                    ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+-->
 <h2>Response</h2>
 <pre id="responseArea">(No response yet)</pre>
 
+<!--
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                             JAVASCRIPT SECTION                                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  API CLIENT IMPLEMENTATION NOTES:                                            ║
+║  ─────────────────────────────────                                           ║
+║                                                                              ║
+║  1. BASE_URL Configuration:                                                  ║
+║     - Development: http://127.0.0.1:8000                                     ║
+║     - Production: Set via environment variable                               ║
+║                                                                              ║
+║  2. Error Handling:                                                          ║
+║     - All endpoints return JSON with "status" field on error                 ║
+║     - HTTP 4xx = client error (bad input)                                    ║
+║     - HTTP 5xx = server error (contact support)                              ║
+║                                                                              ║
+║  3. Authentication (Future):                                                 ║
+║     - Currently: No auth required                                            ║
+║     - Planned: JWT tokens in Authorization header                            ║
+║                                                                              ║
+║  4. Rate Limiting (Future):                                                  ║
+║     - Currently: No limits                                                   ║
+║     - Planned: 100 req/min for free tier                                     ║
+║                                                                              ║
+║  5. CORS:                                                                    ║
+║     - v3.0.0: Configurable via QSIM_CORS_ORIGINS environment variable        ║
+║     - Default: localhost:3000, localhost:8080                                ║
+║     - Production: Set specific frontend domains in .env file                 ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+-->
 <script>
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
+// Change this URL when deploying to production or testing against different
+// environments. Consider using environment-specific config files in production.
 const BASE_URL = "http://127.0.0.1:8000";
 
-// Helper to display JSON response
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Display JSON response in the response area
+ *
+ * FRONTEND ENHANCEMENT IDEAS:
+ * - Add syntax highlighting (use highlight.js or Prism)
+ * - Add copy-to-clipboard button
+ * - Add response time display
+ * - Color-code based on success/error status
+ *
+ * @param {Object} data - The response data to display
+ */
 function showResponse(data) {
   const resp = document.getElementById('responseArea');
   resp.textContent = JSON.stringify(data, null, 2);
 }
 
-// ==================== Quantum System: LOCAL ====================
+// ============================================================================
+// HEALTH CHECK
+// ============================================================================
+
+/**
+ * Check API health status
+ *
+ * This is useful for:
+ * - Initial connection verification on page load
+ * - Periodic health checks (e.g., every 30 seconds)
+ * - Reconnection logic after network issues
+ */
+function checkHealth() {
+  const statusSpan = document.getElementById('healthStatus');
+  statusSpan.textContent = "Checking...";
+  statusSpan.style.color = "gray";
+
+  fetch(`${BASE_URL}/health`, { method: 'GET' })
+  .then(r => r.json())
+  .then(data => {
+    showResponse(data);
+    if (data.status === "OK") {
+      const systems = data.metrics?.active_quantum_systems ?? 0;
+      const jobs = data.metrics?.active_hpc_jobs ?? 0;
+      statusSpan.textContent = `✓ API v${data.version} | Systems: ${systems} | Jobs: ${jobs}`;
+      statusSpan.style.color = "green";
+    } else if (data.status === "unhealthy") {
+      statusSpan.textContent = "⚠ API unhealthy - check services";
+      statusSpan.style.color = "orange";
+    } else {
+      statusSpan.textContent = "⚠ Unexpected response";
+      statusSpan.style.color = "orange";
+    }
+  })
+  .catch(err => {
+    showResponse({error: err.message || err});
+    statusSpan.textContent = "✗ API not reachable";
+    statusSpan.style.color = "red";
+  });
+}
+
+// ============================================================================
+// QUANTUM SYSTEM - LOCAL OPERATIONS
+// ============================================================================
+
+/**
+ * Create a new quantum system
+ *
+ * After creation, the system is in state |00...0⟩
+ * Use apply_operation to manipulate the state
+ */
 function createQuantumSystem() {
   const system_id = document.getElementById('qs_sys_id').value;
   const num_qubits = parseInt(document.getElementById('qs_num_qubits').value);
@@ -309,6 +1267,15 @@ function createQuantumSystem() {
   .catch(err => showResponse({error: err}));
 }
 
+/**
+ * Apply a quantum operation (gate) to a system
+ *
+ * Supported operations:
+ * - Single-qubit: X, Y, Z, H, S, T, RX, RY, RZ, PHASE
+ * - Two-qubit: CNOT, CZ, SWAP, CRZ
+ *
+ * For rotation gates (RX, RY, RZ, PHASE, CRZ), include {"angle": radians} in params
+ */
 function applyQsOperation() {
   const system_id = document.getElementById('qs_op_sysid').value;
   const operation = document.getElementById('qs_operation').value;
@@ -333,6 +1300,12 @@ function applyQsOperation() {
   .catch(err => showResponse({error: err}));
 }
 
+/**
+ * Measure qubits and get probability distribution
+ *
+ * NOTE: This does NOT collapse the state - it returns probabilities
+ * The quantum state remains unchanged after this call
+ */
 function measureQs() {
   const system_id = document.getElementById('qs_measure_sysid').value;
   const qubitsStr = document.getElementById('qs_measure_qubits').value;
@@ -349,7 +1322,26 @@ function measureQs() {
   .catch(err => showResponse({error: err}));
 }
 
-// ==================== Quantum System: HPC Distributed ====================
+/**
+ * Delete a quantum system and free server resources
+ */
+function deleteQuantumSystem() {
+  const system_id = document.getElementById('qs_delete_sysid').value;
+  fetch(`${BASE_URL}/qsystem/delete_system?system_id=${system_id}`, { method: 'DELETE' })
+  .then(r => r.json())
+  .then(data => showResponse(data))
+  .catch(err => showResponse({error: err}));
+}
+
+// ============================================================================
+// QUANTUM SYSTEM - HPC DISTRIBUTED
+// ============================================================================
+
+/**
+ * Submit a distributed simulation job to the HPC system
+ *
+ * After submission, poll /hpc/job_status?job_id=X to check progress
+ */
 function submitDistributedSimulation() {
   const job_id = document.getElementById('qs_hpc_jobid').value;
   const num_qubits = parseInt(document.getElementById('qs_hpc_num_qubits').value);
@@ -387,7 +1379,13 @@ function submitDistributedSimulation() {
   .catch(err => showResponse({error: err}));
 }
 
-// ==================== HPC Functions ====================
+// ============================================================================
+// HPC JOB MANAGEMENT
+// ============================================================================
+
+/**
+ * Submit a generic HPC job
+ */
 function submitHPCJob() {
   const job_id = document.getElementById('hpc_job_id').value;
   const qubit_count = parseInt(document.getElementById('hpc_qubit_count').value);
@@ -416,6 +1414,14 @@ function submitHPCJob() {
   .catch(err => showResponse({error: err}));
 }
 
+/**
+ * Check the status of an HPC job
+ *
+ * Possible statuses: QUEUED, RUNNING, COMPLETED, FAILED, CANCELED
+ *
+ * FRONTEND TIP: Implement polling with setInterval() for active jobs,
+ * stopping when status is COMPLETED, FAILED, or CANCELED
+ */
 function checkHPCJobStatus() {
   const job_id = document.getElementById('hpc_job_id_status').value;
   fetch(`${BASE_URL}/hpc/job_status?job_id=${job_id}`, { method: 'GET' })
@@ -424,7 +1430,57 @@ function checkHPCJobStatus() {
   .catch(err => showResponse({error: err}));
 }
 
-// ==================== IonQ Local ====================
+/**
+ * List all HPC jobs
+ *
+ * Returns array of all jobs with their current status
+ */
+function listHPCJobs() {
+  fetch(`${BASE_URL}/hpc/list_jobs`, { method: 'GET' })
+  .then(r => r.json())
+  .then(data => showResponse(data))
+  .catch(err => showResponse({error: err}));
+}
+
+/**
+ * Cancel a running or queued HPC job
+ *
+ * Resources are released immediately upon cancellation
+ */
+function cancelHPCJob() {
+  const job_id = document.getElementById('hpc_job_id_cancel').value;
+  fetch(`${BASE_URL}/hpc/cancel_job?job_id=${job_id}`, { method: 'DELETE' })
+  .then(r => r.json())
+  .then(data => showResponse(data))
+  .catch(err => showResponse({error: err}));
+}
+
+/**
+ * Get current HPC resource utilization
+ *
+ * Shows total and available: CPU cores, GPU cards, memory
+ */
+function getHPCResources() {
+  fetch(`${BASE_URL}/hpc/resources`, { method: 'GET' })
+  .then(r => r.json())
+  .then(data => showResponse(data))
+  .catch(err => showResponse({error: err}));
+}
+
+// ============================================================================
+// IONQ BENCHMARKING - LOCAL
+// ============================================================================
+
+/**
+ * Run Direct Randomized Benchmarking (DRB)
+ *
+ * DRB measures gate fidelity by executing random circuit sequences
+ * and measuring how well the system returns to the initial state.
+ *
+ * @param qubits - Which qubits to benchmark
+ * @param depth - Circuit depth (higher = more accurate but slower)
+ * @param p2q - Probability of two-qubit gates (typically 0.25 for IonQ)
+ */
 function runIonqDRB() {
   const qubitsStr = document.getElementById('ionq_qubits').value;
   const qubits = qubitsStr.split(',').map(q => parseInt(q.trim()));
@@ -442,6 +1498,11 @@ function runIonqDRB() {
   .catch(err => showResponse({error: err}));
 }
 
+/**
+ * Run an application benchmark
+ *
+ * Tests performance on real quantum algorithms
+ */
 function runIonqApplication() {
   const name = document.getElementById('ionq_app_name').value;
   const width = parseInt(document.getElementById('ionq_app_width').value);
@@ -457,7 +1518,42 @@ function runIonqApplication() {
   .catch(err => showResponse({error: err}));
 }
 
-// ==================== IonQ HPC ====================
+/**
+ * Run error mitigation on a circuit
+ *
+ * Executes multiple variants of the circuit and uses plurality voting
+ * to reduce the impact of random errors.
+ */
+function runIonqErrorMitigation() {
+  const num_qubits = parseInt(document.getElementById('ionq_em_qubits').value);
+  let circuit;
+  try {
+    circuit = JSON.parse(document.getElementById('ionq_em_circuit').value);
+  } catch(e) {
+    showResponse({error: "Invalid circuit JSON"});
+    return;
+  }
+
+  const payload = { num_qubits, circuit };
+  fetch(`${BASE_URL}/ionq/error_mitigation`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(data => showResponse(data))
+  .catch(err => showResponse({error: err}));
+}
+
+// ============================================================================
+// IONQ BENCHMARKING - HPC
+// ============================================================================
+
+/**
+ * Submit an IonQ benchmark task to HPC
+ *
+ * Supports all benchmark types: drb, app, error_mitigation
+ */
 function submitHPCIonq() {
   const job_id = document.getElementById('ionq_hpc_jobid').value;
   const benchmark_type = document.getElementById('ionq_bench_type').value;
@@ -515,7 +1611,15 @@ function submitHPCIonq() {
   .catch(err => showResponse({error: err}));
 }
 
-// ==================== Memristor (Local) ====================
+// ============================================================================
+// MEMRISTOR GATE ACCELERATION - LOCAL
+// ============================================================================
+
+/**
+ * Execute a memristor-based quantum circuit
+ *
+ * Returns gate results and power consumption metrics
+ */
 function runMemCircuit() {
   const circuit_id = document.getElementById('mem_circ_id').value;
   let operations;
@@ -537,7 +1641,13 @@ function runMemCircuit() {
   .catch(err => showResponse({error: err}));
 }
 
-// ==================== Memristor HPC ====================
+// ============================================================================
+// MEMRISTOR GATE ACCELERATION - HPC
+// ============================================================================
+
+/**
+ * Submit a memristor circuit to HPC
+ */
 function submitHPCMemristor() {
   const job_id = document.getElementById('mem_hpc_jobid').value;
   const circuit_id = document.getElementById('mem_hpc_circid').value;
@@ -580,7 +1690,16 @@ function submitHPCMemristor() {
   .catch(err => showResponse({error: err}));
 }
 
-// ==================== Surface Code (Local) ====================
+// ============================================================================
+// SURFACE CODE ERROR CORRECTION - LOCAL
+// ============================================================================
+
+/**
+ * Measure surface code stabilizers
+ *
+ * Returns X and Z stabilizer measurement outcomes
+ * Use these to detect errors in the quantum state
+ */
 function measureSurfaceStabilizers() {
   const distance = parseInt(document.getElementById('sc_distance').value);
   const cycle_index = parseInt(document.getElementById('sc_cycle_index').value);
@@ -596,6 +1715,12 @@ function measureSurfaceStabilizers() {
   .catch(err => showResponse({error: err}));
 }
 
+/**
+ * Decode a syndrome to determine corrections
+ *
+ * Takes stabilizer measurements and determines what corrections
+ * should be applied to fix detected errors
+ */
 function decodeSurfaceSyndrome() {
   const distance = parseInt(document.getElementById('sc_distance_decode').value);
   let stabilizer_data;
@@ -617,7 +1742,16 @@ function decodeSurfaceSyndrome() {
   .catch(err => showResponse({error: err}));
 }
 
-// ==================== Surface Code (HPC) ====================
+// ============================================================================
+// SURFACE CODE ERROR CORRECTION - HPC
+// ============================================================================
+
+/**
+ * Run multi-round QEC simulation via HPC
+ *
+ * Simulates multiple rounds of error correction to measure
+ * logical error rates and study error suppression
+ */
 function submitMultiRoundQEC() {
   const job_id = document.getElementById('sc_hpc_jobid').value;
   const distance = parseInt(document.getElementById('sc_hpc_distance').value);
@@ -654,5 +1788,62 @@ function submitMultiRoundQEC() {
   .catch(err => showResponse({error: err}));
 }
 </script>
+
+<!--
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           END OF TEST FORM                                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  VERSION 3.0.0 FEATURES:                                                     ║
+║  ───────────────────────                                                     ║
+║  • Physics validation test suite (35 tests)                                  ║
+║  • Crosstalk noise model with ZZ Hamiltonian                                 ║
+║  • Application benchmarks use error-model fidelity                           ║
+║  • Scalability documentation (20 qubits practical, 25 max)                   ║
+║  • Enhanced memristor experimental warnings                                  ║
+║                                                                              ║
+║  SUMMARY OF ALL ENDPOINTS:                                                   ║
+║  ─────────────────────────                                                   ║
+║                                                                              ║
+║  Health:                                                                     ║
+║    GET  /health                                                              ║
+║                                                                              ║
+║  Quantum System (5 endpoints):                                               ║
+║    POST   /qsystem/create_system                                             ║
+║    POST   /qsystem/apply_operation                                           ║
+║    POST   /qsystem/measure                                                   ║
+║    DELETE /qsystem/delete_system                                             ║
+║    POST   /qsystem/submit_distributed_simulation                             ║
+║                                                                              ║
+║  HPC (5 endpoints):                                                          ║
+║    POST   /hpc/submit_job                                                    ║
+║    GET    /hpc/job_status                                                    ║
+║    GET    /hpc/list_jobs                                                     ║
+║    DELETE /hpc/cancel_job                                                    ║
+║    GET    /hpc/resources                                                     ║
+║                                                                              ║
+║  IonQ (4 endpoints):                                                         ║
+║    POST   /ionq/drb                                                          ║
+║    POST   /ionq/application                                                  ║
+║    POST   /ionq/error_mitigation                                             ║
+║    POST   /ionq/submit_hpc_ionq                                              ║
+║                                                                              ║
+║  Memristor (2 endpoints):                                                    ║
+║    POST   /memristor/run_circuit                                             ║
+║    POST   /memristor/submit_hpc_memristor                                    ║
+║                                                                              ║
+║  Surface Code (3 endpoints):                                                 ║
+║    POST   /surface_code/measure_stabilizers                                  ║
+║    POST   /surface_code/decode_syndrome                                      ║
+║    POST   /surface_code/run_multi_round_qec                                  ║
+║                                                                              ║
+║  TOTAL: 20 API endpoints                                                     ║
+║                                                                              ║
+║  AUTO-GENERATED DOCS:                                                        ║
+║  • Swagger UI: http://127.0.0.1:8000/docs                                    ║
+║  • ReDoc: http://127.0.0.1:8000/redoc                                        ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+-->
 </body>
 </html>

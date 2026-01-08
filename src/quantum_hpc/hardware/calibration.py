@@ -5,6 +5,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional
 
+import numpy as np
+
 logger = logging.getLogger(__name__)
 
 @dataclass
